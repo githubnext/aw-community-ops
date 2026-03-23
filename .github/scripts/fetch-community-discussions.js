@@ -7,6 +7,7 @@ const TARGET_OWNER = "community";
 const TARGET_REPO = "community";
 const OUTPUT_ROOT = process.env.OUTPUT_ROOT || "/tmp/gh-aw/agent/discussion-scan";
 const DEFAULT_MAX_DISCUSSIONS = 100;
+const GRAPHQL_CONNECTION_PAGE_LIMIT = 100;
 const MAX_BODY_LENGTH = 4000;
 const INACTIVE_DAYS_THRESHOLD = 30;
 const WORKSPACE_ROOT = process.env.GITHUB_WORKSPACE || process.cwd();
@@ -379,58 +380,79 @@ async function fetchDiscussionByNumber(github, discussionNumber) {
 }
 
 async function fetchDiscussions(github, maxDiscussions) {
-  const result = await github.graphql(
-    `
-      query($owner: String!, $repo: String!, $first: Int!) {
-        repository(owner: $owner, name: $repo) {
-          discussions(first: $first, orderBy: { field: CREATED_AT, direction: DESC }) {
-            totalCount
-            nodes {
-              number
-              title
-              url
-              bodyText
-              labels(first: 20) {
-                nodes {
+  const collectedDiscussions = [];
+  let totalCount = 0;
+  let after = null;
+
+  while (collectedDiscussions.length < maxDiscussions) {
+    const remaining = maxDiscussions - collectedDiscussions.length;
+    const result = await github.graphql(
+      `
+        query($owner: String!, $repo: String!, $first: Int!, $after: String) {
+          repository(owner: $owner, name: $repo) {
+            discussions(first: $first, after: $after, orderBy: { field: CREATED_AT, direction: DESC }) {
+              totalCount
+              nodes {
+                number
+                title
+                url
+                bodyText
+                labels(first: 20) {
+                  nodes {
+                    name
+                  }
+                }
+                createdAt
+                updatedAt
+                isAnswered
+                upvoteCount
+                author {
+                  login
+                }
+                category {
                   name
+                  slug
+                }
+                comments {
+                  totalCount
                 }
               }
-              createdAt
-              updatedAt
-              isAnswered
-              upvoteCount
-              author {
-                login
-              }
-              category {
-                name
-                slug
-              }
-              comments {
-                totalCount
+              pageInfo {
+                hasNextPage
+                endCursor
               }
             }
           }
         }
-      }
-    `,
-    {
-      owner: TARGET_OWNER,
-      repo: TARGET_REPO,
-      first: maxDiscussions,
-    },
-  );
+      `,
+      {
+        owner: TARGET_OWNER,
+        repo: TARGET_REPO,
+        first: Math.min(remaining, GRAPHQL_CONNECTION_PAGE_LIMIT),
+        after,
+      },
+    );
 
-  const connection = result.repository.discussions;
-  const uniqueAuthors = [...new Set(connection.nodes.map((d) => d.author?.login).filter(Boolean))];
+    const connection = result.repository.discussions;
+    totalCount = connection.totalCount;
+    collectedDiscussions.push(...connection.nodes);
+
+    if (!connection.pageInfo.hasNextPage) {
+      break;
+    }
+
+    after = connection.pageInfo.endCursor;
+  }
+
+  const uniqueAuthors = [...new Set(collectedDiscussions.map((d) => d.author?.login).filter(Boolean))];
   const firstPostAuthors = await resolveFirstPostAuthors(github, uniqueAuthors);
 
-  const discussions = connection.nodes.map((raw) =>
+  const discussions = collectedDiscussions.map((raw) =>
     normalizeDiscussion(raw, firstPostAuthors.has(raw.author?.login)),
   );
 
   return {
-    totalCount: connection.totalCount,
+    totalCount,
     inventoryDiscussions: discussions,
     preparedDiscussions: discussions,
   };
