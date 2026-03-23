@@ -36,7 +36,7 @@ safe-outputs:
     staged: true
     target: "*"
     target-repo: community/community
-    max: 120
+    max: 100
     labels:
     allowed-labels:
       - 2FA
