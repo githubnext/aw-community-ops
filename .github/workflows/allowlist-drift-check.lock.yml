@@ -26,7 +26,7 @@
 name: "Allowlist Drift Check"
 "on":
   schedule:
-  - cron: "34 8 * * 4"
+  - cron: "58 22 * * 3"
     # Friendly format: weekly (scattered)
   workflow_dispatch:
 

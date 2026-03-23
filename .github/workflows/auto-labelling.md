@@ -208,5 +208,11 @@ safe-outputs:
       - ":rocket: Shipped"
       - "🛣 On the Roadmap"
 ---
+# Auto-labelling Discussions
 
+You have two tasks:
+
+1. You propose label changes using the staged `update-discussion` safe output, but do not apply labels live.
 {{#runtime-import .github/instructions/community-discussion-labeling.md}}
+
+2. You report a summary of the discussions you processed in the form of an issue, including how many discussions you would have labeled and any patterns or insights you observed in the discussions.

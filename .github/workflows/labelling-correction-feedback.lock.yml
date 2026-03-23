@@ -26,7 +26,7 @@
 name: "Labelling Correction Feedback"
 "on":
   schedule:
-  - cron: "53 0 * * *"
+  - cron: "5 20 * * *"
     # Friendly format: daily (scattered)
   workflow_dispatch:
 
