@@ -37,15 +37,16 @@ function writeOutputs(discussions, events) {
 
 function normalizeDispatchPayload(context) {
   const payload = context.dispatch_payload || {};
-  const labelName = payload.label;
-  const actor = payload.actor || "";
-  const eventType = payload.event_type;
+  const dispatchData = payload.data && typeof payload.data === "object" ? payload.data : payload;
+  const labelName = dispatchData.label;
+  const actor = dispatchData.actor || "";
+  const eventType = dispatchData.event_type;
 
   if (eventType !== "labeled" && eventType !== "unlabeled") {
     throw new Error(`Unsupported dispatch event type: ${eventType || "<empty>"}`);
   }
 
-  if (!labelName || !actor || !payload.discussion_number) {
+  if (!labelName || !actor || !dispatchData.discussion_number) {
     throw new Error("Dispatch payload is missing one of: discussion_number, label, actor");
   }
 
@@ -59,22 +60,22 @@ function normalizeDispatchPayload(context) {
   return {
     discussions: [
       {
-        number: payload.discussion_number,
-        title: payload.discussion_title || "unknown",
-        updatedAt: payload.createdAt || new Date().toISOString(),
-        category: payload.category || "unknown",
-        categorySlug: payload.category_slug || "unknown",
+        number: dispatchData.discussion_number,
+        title: dispatchData.discussion_title || "unknown",
+        updatedAt: dispatchData.createdAt || new Date().toISOString(),
+        category: dispatchData.category || "unknown",
+        categorySlug: dispatchData.category_slug || "unknown",
       },
     ],
     events: [
       {
-        discussion_number: payload.discussion_number,
-        discussion_title: payload.discussion_title || "unknown",
-        category: payload.category || "unknown",
+        discussion_number: dispatchData.discussion_number,
+        discussion_title: dispatchData.discussion_title || "unknown",
+        category: dispatchData.category || "unknown",
         event_type: eventType,
         label: labelName,
         actor,
-        createdAt: payload.createdAt || new Date().toISOString(),
+        createdAt: dispatchData.createdAt || new Date().toISOString(),
       },
     ],
   };
