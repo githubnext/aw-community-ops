@@ -2,49 +2,57 @@
 name: Labelling Correction Feedback
 
 on:
-  schedule: daily
-  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - staff-label-correction
 
 permissions:
   contents: read
-  discussions: read
 
 steps:
-  - name: Capture event context
+  - name: Write feedback context
     env:
       EVENT_NAME: ${{ github.event_name }}
-      CLIENT_ACTOR: ${{ github.event.client_payload.actor }}
-      CLIENT_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+      CLIENT_PAYLOAD: ${{ toJson(github.event.client_payload) }}
     run: |
       mkdir -p /tmp/gh-aw/agent/labelling-correction
-      if [ "$EVENT_NAME" = "repository_dispatch" ]; then
-        printf '%s' "$CLIENT_PAYLOAD" > /tmp/gh-aw/agent/labelling-correction/event.json
-        printf '%s' "$CLIENT_ACTOR" > /tmp/gh-aw/agent/labelling-correction/actor.txt
-      else
-        echo '{}' > /tmp/gh-aw/agent/labelling-correction/event.json
-        echo '' > /tmp/gh-aw/agent/labelling-correction/actor.txt
-      fi
       printf '%s' "$EVENT_NAME" > /tmp/gh-aw/agent/labelling-correction/event_name.txt
-  - id: team_check
-    env:
-      GH_TOKEN: ${{ secrets.READ_COMM_COMM_DISCUSSIONS_TOKEN }}
-      EVENT_NAME: ${{ github.event_name }}
-      ACTOR: ${{ github.event.client_payload.actor }}
-    run: |
-      if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "schedule" ]; then exit 0; fi
-      STATUS=$(gh api orgs/github/teams/community-ops/memberships/"$ACTOR" --jq '.state' 2>/dev/null || echo "none")
-      [ "$STATUS" = "active" ] && exit 0 || exit 1
+      node <<'EOF'
+      const fs = require("node:fs");
+      const path = require("node:path");
 
-if: needs.pre_activation.outputs.team_check_result == 'success'
+      const outputPath = path.join("/tmp/gh-aw/agent/labelling-correction", "context.json");
+      const eventName = process.env.EVENT_NAME;
+      const context = {
+        event_name: eventName,
+        intake_mode: "dispatch",
+      };
+
+      if (eventName !== "repository_dispatch") {
+        throw new Error(`Unsupported event name: ${eventName}`);
+      }
+
+      context.dispatch_payload = JSON.parse(process.env.CLIENT_PAYLOAD || "{}");
+
+      fs.writeFileSync(outputPath, `${JSON.stringify(context, null, 2)}\n`, "utf8");
+      EOF
+
+  - name: Fetch label timeline events
+    uses: actions/github-script@v8
+    with:
+      github-token: ${{ github.token }}
+      script: |
+        const path = require("node:path");
+        const { main } = require(path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "fetch-label-timeline-events.js"));
+        await main({ core });
 
 tools:
   github:
-    mode: remote
-    github-token: ${{ secrets.READ_COMM_COMM_DISCUSSIONS_TOKEN }}
-    toolsets: [discussions]
-  cache-memory: true
+    github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
+    toolsets: [repos]
 
 safe-outputs:
+  allowed-github-references: [community/community-ops]
   create-issue:
     max: 1
     close-older-issues: false
@@ -52,78 +60,86 @@ safe-outputs:
 
 # Labelling Correction Feedback
 
-You are an automation that records manual label corrections made by staff on `community/community` discussions, and surfaces recurring patterns as suggested improvements to the auto-labelling workflow instructions.
+You are an automation that inspects discussion timeline events in the target repository, identifies label changes made by trusted staff actors, and surfaces recurring correction patterns as suggested improvements to the auto-labelling workflow instructions.
 
-When a staff or maintainer team member manually adds or removes a label on a discussion, that is a correction signal — it suggests the auto-labelling workflow either missed something, applied the wrong label, or over-labelled. When the same correction happens across multiple discussions, that pattern is worth encoding into the instructions rather than correcting by hand each time.
+When a trusted actor adds or removes a label on a discussion, that is a correction signal — it suggests the auto-labelling workflow either missed something, applied the wrong label, or over-labelled. When the same correction appears across multiple discussions, it is worth encoding into the instructions rather than correcting by hand each time.
 
 ## How This Works
 
-Each time a discussion is labeled or unlabeled in `community/community` by a staff team member, this workflow fires. The team membership check is handled deterministically before the agent activates. Your job is to record the correction to `cache-memory` and open a feedback issue when a pattern accumulates (threshold: 3 distinct discussions).
+This workflow is dispatch-only. The target repository forwards every non-bot label or unlabel discussion event through `repository_dispatch`, and this sidecar workflow applies the trusted-actor and ignored-label filters locally.
 
-If triggered manually via `workflow_dispatch` or on the weekly `schedule`, run a full analysis of all accumulated corrections and report at a lower threshold (2+ occurrences).
+Each repository-dispatched run analyses only the forwarded event payload it receives. Once the event survives local filtering, treat it as immediately actionable because the run represents a single correction signal.
+
+## Trusted Actor Allow-List
+
+Only label changes made by the following actors count as correction signals. **Skip all other events.**
+
+- `samus-aran`
+- `queenofcorgis`
+- `akash1134`
+- `ghostinhershell`
+- `shinybrightstar`
+- `ebndev`
+- `mecodeatlas`
+- `mnkiefer`
+
+If an event's actor login does not appear in this list, ignore it entirely.
 
 ## Your Task
 
-### Step 1: Read event context
+### Step 1: Read context
 
-Read the following files written by the prep step:
+Read the following files written by the prep steps:
 
-- `/tmp/gh-aw/agent/labelling-correction/event_name.txt` — will be `repository_dispatch`, `schedule`, or `workflow_dispatch`
-- `/tmp/gh-aw/agent/labelling-correction/actor.txt` — the GitHub login of the person who made the change
-- `/tmp/gh-aw/agent/labelling-correction/event.json` — the client payload forwarded from `community/community`
+- `/tmp/gh-aw/agent/labelling-correction/event_name.txt` — will be `repository_dispatch`
+- `/tmp/gh-aw/agent/labelling-correction/context.json` — contains:
+  - `event_name`
+  - `intake_mode`
+  - `dispatch_payload`
 
-If the event is `repository_dispatch`, extract from `event.json`:
+### Step 2: Read pre-fetched data
 
-- `action` — `labeled` or `unlabeled`
-- `label` — the label that was added or removed
-- `discussion_number` — the discussion number
-- `discussion_title` — the discussion title
-- `category` — the discussion category
-- `actor` — the GitHub login of the person who applied or removed the label
+The prep steps have already prepared data for the current intake mode. Read:
 
-### Step 2: Record the correction to cache
+- `/tmp/gh-aw/agent/labelling-correction/discussions.json` — array of relevant discussions, each with:
+  - `number`
+  - `title`
+  - `updatedAt`
+  - `category`
+- `/tmp/gh-aw/agent/labelling-correction/events.json` — array of filtered correction events, each with:
+  - `discussion_number`
+  - `discussion_title`
+  - `category`
+  - `event_type` (`labeled` or `unlabeled`)
+  - `label`
+  - `actor`
+  - `createdAt`
 
-Load the corrections log from `cache-memory` at path `labelling-corrections/log.json`. If it does not exist, start with an empty array `[]`.
+Events have already been filtered to:
 
-Append a new entry:
+- Only trusted actors from the allow-list
+- Excluding bot accounts and ignored labels (`inactive`, `Welcome :tada:`, `source:ui`, `source:other`, `A Welcome to GitHub`, `Welcome 🎉`)
 
-```json
-{
-  "label": "<label name>",
-  "action": "added" | "removed",
-  "discussion_number": 12345,
-  "discussion_title": "...",
-  "category": "...",
-  "actor": "<login>",
-  "recorded_at": "YYYY-MM-DD"
-}
-```
+The incoming payload may originate from any human actor. The prep script is responsible for applying the trusted-actor and ignored-label filtering before writing `events.json`.
 
-Write the updated log back to `labelling-corrections/log.json`.
+If `events.json` is empty, end with `noop`.
 
-### Step 3: Analyse the log for patterns
+### Step 3: Analyse corrections for patterns
 
-Group entries in the log by `(label, action)` pair. For each group:
+Group the events from `events.json` by `(label, event_type)` pair. For each group:
 
 - Count distinct `discussion_number` values
 - Note all unique categories represented
 
 A pattern is **actionable** when:
 
-- The same label was added (or removed) across **3 or more distinct discussions**, OR
-- `workflow_dispatch` or `schedule` triggered this run (report everything with 2+ occurrences)
-
-Ignore the following labels — they are expected to change via other automated workflows:
-
-- `inactive`, `Welcome 🎉`, `source:ui`, `source:other`
+- `repository_dispatch` triggered this run and the pattern appears in **1 or more distinct discussions**
 
 ### Step 4: Create a feedback issue or noop
 
-If actionable patterns were found, create a feedback issue.
+If actionable patterns were found, create a feedback issue using the format below.
 
-If not (threshold not met and not `workflow_dispatch`), end with `noop`.
-
-After creating an issue, **clear the entries** for any patterns included in that issue from the log (keep unreported entries). Write the pruned log back to `labelling-corrections/log.json`.
+If no actionable patterns exist, end with `noop`.
 
 ## Issue Format
 
@@ -131,14 +147,17 @@ After creating an issue, **clear the entries** for any patterns included in that
 
 **Body structure:**
 
+Include a brief note near the top:
+> The following patterns were detected from `LabeledEvent` / `UnlabeledEvent` timeline items on recently updated discussions, filtered to changes made by trusted staff actors.
+
 For each actionable pattern, include:
 
 - The label name and whether it was added or removed
-- Number of corrections (with discussion numbers)
+- Number of distinct corrections (with discussion numbers)
 - The discussion category or categories where it occurred
 - A concrete suggested instruction change in plain language — for example: "Consider adding a rule that applies `Troubleshooting` to Codespaces discussions describing a setup failure"
 
 Close with:
-> These patterns were detected from label changes made by staff on recent discussions. Review and close this issue once the relevant instruction changes have been applied, or mark patterns as noise if they are intentional edge cases.
+> Review and close this issue once the relevant instruction changes have been applied, or mark patterns as noise if they are intentional edge cases.
 
 Keep the issue factual and specific. This is input for instruction fine-tuning, not an alert. Do not include individual actor names in the issue body.

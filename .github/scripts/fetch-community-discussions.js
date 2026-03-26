@@ -3,11 +3,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const TARGET_OWNER = "community";
-const TARGET_REPO = "community";
-const OUTPUT_ROOT = process.env.OUTPUT_ROOT || "/tmp/gh-aw/agent/discussion-scan";
+const DEFAULT_TARGET_REPOSITORY = "community/community";
 const DEFAULT_MAX_DISCUSSIONS = 100;
-const GRAPHQL_CONNECTION_PAGE_LIMIT = 100;
+const DEFAULT_TARGET_CATEGORY = "all";
+const OUTPUT_ROOT = process.env.OUTPUT_ROOT || "/tmp/gh-aw/agent/discussion-scan";
 const MAX_BODY_LENGTH = 4000;
 const INACTIVE_DAYS_THRESHOLD = 30;
 const WORKSPACE_ROOT = process.env.GITHUB_WORKSPACE || process.cwd();
@@ -76,16 +75,78 @@ function normalizeDiscussionLabels(labelsConnection) {
     .map((label) => ({ name: label.trim() }));
 }
 
-function parseMaxDiscussions(rawValue, workflowMaxDiscussions = null) {
-  const minimumDiscussions = Number.isFinite(workflowMaxDiscussions) && workflowMaxDiscussions > 0
-    ? workflowMaxDiscussions
-    : DEFAULT_MAX_DISCUSSIONS;
+function parseMaxDiscussions(rawValue) {
   const parsed = Number.parseInt(rawValue || "", 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return minimumDiscussions;
+    return DEFAULT_MAX_DISCUSSIONS;
   }
 
-  return Math.max(parsed, minimumDiscussions);
+  return parsed;
+}
+
+function parseTargetRepository(fullName) {
+  const trimmed = (fullName || "").trim();
+  const [owner, repo] = trimmed.split("/");
+  if (!owner || !repo) {
+    throw new Error(`Invalid target repository: ${trimmed || "<empty>"}`);
+  }
+
+  return {
+    full_name: `${owner}/${repo}`,
+    owner,
+    repo,
+  };
+}
+
+function parseTargetCategory(rawValue) {
+  const normalized = (rawValue || "").trim().toLowerCase();
+  if (!normalized || normalized === DEFAULT_TARGET_CATEGORY) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function readTargetRepository(lines = readWorkflowLines()) {
+  const envTargetRepository = (process.env.TARGET_REPOSITORY || "").trim();
+  if (envTargetRepository) {
+    return parseTargetRepository(envTargetRepository);
+  }
+
+  if (!lines) {
+    return parseTargetRepository(DEFAULT_TARGET_REPOSITORY);
+  }
+
+  const updateDiscussionIndex = lines.findIndex((line) => /^\s*update-discussion:\s*$/.test(line));
+  if (updateDiscussionIndex === -1) {
+    return parseTargetRepository(DEFAULT_TARGET_REPOSITORY);
+  }
+
+  const sectionIndent = countIndent(lines[updateDiscussionIndex]);
+  for (let index = updateDiscussionIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim()) {
+      continue;
+    }
+
+    const indent = countIndent(line);
+    if (indent <= sectionIndent) {
+      break;
+    }
+
+    const match = line.match(/^\s*target-repo:\s*([^\s]+)\s*$/);
+    if (!match) {
+      continue;
+    }
+
+    return parseTargetRepository(match[1]);
+  }
+
+  return parseTargetRepository(DEFAULT_TARGET_REPOSITORY);
+}
+
+function readTargetCategory() {
+  return parseTargetCategory(process.env.TARGET_CATEGORY || DEFAULT_TARGET_CATEGORY);
 }
 
 function parseDiscussionNumber(rawValue) {
@@ -140,38 +201,30 @@ function readAllowlists(lines = readWorkflowLines()) {
   };
 }
 
-function readUpdateDiscussionMax(lines = readWorkflowLines()) {
-  if (!lines) {
+function resolveTargetCategoryInfo(categories, targetCategory) {
+  if (!targetCategory) {
     return null;
   }
 
-  const updateDiscussionIndex = lines.findIndex((line) => /^\s*update-discussion:\s*$/.test(line));
-  if (updateDiscussionIndex === -1) {
-    return null;
+  const match = categories.find((category) =>
+    category.slug.toLowerCase() === targetCategory || category.name.toLowerCase() === targetCategory,
+  );
+  if (!match) {
+    throw new Error(`Target category '${targetCategory}' was not found in ${categories.map((category) => category.slug).join(", ")}`);
   }
 
-  const sectionIndent = countIndent(lines[updateDiscussionIndex]);
-  for (let index = updateDiscussionIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!line.trim()) {
-      continue;
-    }
-
-    const indent = countIndent(line);
-    if (indent <= sectionIndent) {
-      break;
-    }
-
-    const match = line.match(/^\s*max:\s*(\d+)\s*$/);
-    if (match) {
-      return Number.parseInt(match[1], 10);
-    }
-  }
-
-  return null;
+  return match;
 }
 
-async function fetchAllDiscussionCategories(github) {
+function matchesTargetCategory(category, targetCategoryInfo) {
+  if (!targetCategoryInfo) {
+    return true;
+  }
+
+  return (category?.slug || "").toLowerCase() === targetCategoryInfo.slug.toLowerCase();
+}
+
+async function fetchAllDiscussionCategories(github, targetRepository) {
   const categories = [];
   let after = null;
 
@@ -197,8 +250,8 @@ async function fetchAllDiscussionCategories(github) {
         }
       `,
       {
-        owner: TARGET_OWNER,
-        repo: TARGET_REPO,
+        owner: targetRepository.owner,
+        repo: targetRepository.repo,
         after,
       },
     );
@@ -225,12 +278,12 @@ async function fetchAllDiscussionCategories(github) {
   return categories;
 }
 
-async function fetchAllLabels(github) {
+async function fetchAllLabels(github, targetRepository) {
   const labels = await github.paginate(
     github.rest.issues.listLabelsForRepo,
     {
-      owner: TARGET_OWNER,
-      repo: TARGET_REPO,
+      owner: targetRepository.owner,
+      repo: targetRepository.repo,
       per_page: 100,
     },
     (response) =>
@@ -245,7 +298,7 @@ async function fetchAllLabels(github) {
   return labels;
 }
 
-async function resolveFirstPostAuthors(github, authorLogins) {
+async function resolveFirstPostAuthors(github, authorLogins, targetRepository) {
   if (authorLogins.length === 0) {
     return new Set();
   }
@@ -264,7 +317,7 @@ async function resolveFirstPostAuthors(github, authorLogins) {
             discussionCount
           }
         }`,
-        { q: `repo:${TARGET_OWNER}/${TARGET_REPO} author:${login}` },
+        { q: `repo:${targetRepository.owner}/${targetRepository.repo} author:${login}` },
       ).then((result) => ({ login, count: result.search.discussionCount })),
     ),
   );
@@ -324,7 +377,7 @@ function normalizeDiscussion(discussion, isFirstPost = false) {
   };
 }
 
-async function fetchDiscussionByNumber(github, discussionNumber) {
+async function fetchDiscussionByNumber(github, discussionNumber, targetRepository, targetCategoryInfo) {
   const result = await github.graphql(
     `
       query($owner: String!, $repo: String!, $number: Int!) {
@@ -358,19 +411,22 @@ async function fetchDiscussionByNumber(github, discussionNumber) {
       }
     `,
     {
-      owner: TARGET_OWNER,
-      repo: TARGET_REPO,
+      owner: targetRepository.owner,
+      repo: targetRepository.repo,
       number: discussionNumber,
     },
   );
 
   const discussion = result.repository.discussion;
   if (!discussion) {
-    throw new Error(`Discussion #${discussionNumber} was not found in ${TARGET_OWNER}/${TARGET_REPO}`);
+    throw new Error(`Discussion #${discussionNumber} was not found in ${targetRepository.owner}/${targetRepository.repo}`);
+  }
+  if (!matchesTargetCategory(discussion.category, targetCategoryInfo)) {
+    throw new Error(`Discussion #${discussionNumber} is not in target category '${targetCategoryInfo.slug}'`);
   }
 
   const authorLogin = discussion.author ? discussion.author.login : null;
-  const firstPostAuthors = await resolveFirstPostAuthors(github, authorLogin ? [authorLogin] : []);
+  const firstPostAuthors = await resolveFirstPostAuthors(github, authorLogin ? [authorLogin] : [], targetRepository);
   const normalizedDiscussion = normalizeDiscussion(discussion, firstPostAuthors.has(authorLogin));
   return {
     totalCount: 1,
@@ -379,19 +435,96 @@ async function fetchDiscussionByNumber(github, discussionNumber) {
   };
 }
 
-async function fetchDiscussions(github, maxDiscussions) {
-  const collectedDiscussions = [];
-  let totalCount = 0;
+async function fetchDiscussions(github, maxDiscussions, targetRepository, targetCategoryInfo) {
+  if (!targetCategoryInfo) {
+    const collectedRaw = [];
+    let totalCount = 0;
+    let after = null;
+
+    while (collectedRaw.length < maxDiscussions) {
+      const pageSize = Math.min(maxDiscussions - collectedRaw.length, 100);
+      const result = await github.graphql(
+        `
+          query($owner: String!, $repo: String!, $first: Int!, $after: String) {
+            repository(owner: $owner, name: $repo) {
+              discussions(first: $first, after: $after, orderBy: { field: CREATED_AT, direction: DESC }) {
+                totalCount
+                nodes {
+                  number
+                  title
+                  url
+                  bodyText
+                  labels(first: 20) {
+                    nodes {
+                      name
+                    }
+                  }
+                  createdAt
+                  updatedAt
+                  isAnswered
+                  upvoteCount
+                  author {
+                    login
+                  }
+                  category {
+                    name
+                    slug
+                  }
+                  comments {
+                    totalCount
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+            }
+          }
+        `,
+        {
+          owner: targetRepository.owner,
+          repo: targetRepository.repo,
+          first: pageSize,
+          after,
+        },
+      );
+
+      const connection = result.repository.discussions;
+      totalCount = connection.totalCount;
+      collectedRaw.push(...connection.nodes);
+
+      if (!connection.pageInfo.hasNextPage) {
+        break;
+      }
+
+      after = connection.pageInfo.endCursor;
+    }
+
+    const uniqueAuthors = [...new Set(collectedRaw.map((d) => d.author?.login).filter(Boolean))];
+    const firstPostAuthors = await resolveFirstPostAuthors(github, uniqueAuthors, targetRepository);
+
+    const discussions = collectedRaw.map((raw) =>
+      normalizeDiscussion(raw, firstPostAuthors.has(raw.author?.login)),
+    );
+
+    return {
+      totalCount,
+      inventoryDiscussions: discussions,
+      preparedDiscussions: discussions,
+    };
+  }
+
+  const filteredRawDiscussions = [];
+  let filteredTotalCount = 0;
   let after = null;
 
-  while (collectedDiscussions.length < maxDiscussions) {
-    const remaining = maxDiscussions - collectedDiscussions.length;
+  while (true) {
     const result = await github.graphql(
       `
         query($owner: String!, $repo: String!, $first: Int!, $after: String) {
           repository(owner: $owner, name: $repo) {
             discussions(first: $first, after: $after, orderBy: { field: CREATED_AT, direction: DESC }) {
-              totalCount
               nodes {
                 number
                 title
@@ -426,16 +559,24 @@ async function fetchDiscussions(github, maxDiscussions) {
         }
       `,
       {
-        owner: TARGET_OWNER,
-        repo: TARGET_REPO,
-        first: Math.min(remaining, GRAPHQL_CONNECTION_PAGE_LIMIT),
+        owner: targetRepository.owner,
+        repo: targetRepository.repo,
+        first: 100,
         after,
       },
     );
 
     const connection = result.repository.discussions;
-    totalCount = connection.totalCount;
-    collectedDiscussions.push(...connection.nodes);
+    for (const discussion of connection.nodes) {
+      if (!matchesTargetCategory(discussion.category, targetCategoryInfo)) {
+        continue;
+      }
+
+      filteredTotalCount += 1;
+      if (filteredRawDiscussions.length < maxDiscussions) {
+        filteredRawDiscussions.push(discussion);
+      }
+    }
 
     if (!connection.pageInfo.hasNextPage) {
       break;
@@ -444,15 +585,15 @@ async function fetchDiscussions(github, maxDiscussions) {
     after = connection.pageInfo.endCursor;
   }
 
-  const uniqueAuthors = [...new Set(collectedDiscussions.map((d) => d.author?.login).filter(Boolean))];
-  const firstPostAuthors = await resolveFirstPostAuthors(github, uniqueAuthors);
+  const uniqueAuthors = [...new Set(filteredRawDiscussions.map((d) => d.author?.login).filter(Boolean))];
+  const firstPostAuthors = await resolveFirstPostAuthors(github, uniqueAuthors, targetRepository);
 
-  const discussions = collectedDiscussions.map((raw) =>
+  const discussions = filteredRawDiscussions.map((raw) =>
     normalizeDiscussion(raw, firstPostAuthors.has(raw.author?.login)),
   );
 
   return {
-    totalCount,
+    totalCount: filteredTotalCount,
     inventoryDiscussions: discussions,
     preparedDiscussions: discussions,
   };
@@ -460,20 +601,23 @@ async function fetchDiscussions(github, maxDiscussions) {
 
 async function main({ core, github }) {
   const workflowLines = readWorkflowLines();
-  const workflowMaxDiscussions = readUpdateDiscussionMax(workflowLines);
-  const maxDiscussions = parseMaxDiscussions(process.env.MAX_DISCUSSIONS, workflowMaxDiscussions);
+  const targetRepository = readTargetRepository(workflowLines);
+  const targetCategory = readTargetCategory();
+  const maxDiscussions = parseMaxDiscussions(process.env.MAX_DISCUSSIONS);
   const targetDiscussionNumber = parseDiscussionNumber(process.env.TARGET_DISCUSSION_NUMBER);
 
   fs.mkdirSync(OUTPUT_ROOT, { recursive: true });
 
   const [categories, labels] = await Promise.all([
-    fetchAllDiscussionCategories(github),
-    fetchAllLabels(github),
+    fetchAllDiscussionCategories(github, targetRepository),
+    fetchAllLabels(github, targetRepository),
   ]);
+  const targetCategoryInfo = resolveTargetCategoryInfo(categories, targetCategory);
   const allowlists = readAllowlists(workflowLines);
 
   const request = {
-    target_repository: `${TARGET_OWNER}/${TARGET_REPO}`,
+    target_repository: targetRepository.full_name,
+    target_category: targetCategoryInfo ? targetCategoryInfo.slug : DEFAULT_TARGET_CATEGORY,
     target_discussion_number: targetDiscussionNumber,
     max_discussions: maxDiscussions,
     available_category_slugs: categories.map((category) => category.slug),
@@ -486,15 +630,16 @@ async function main({ core, github }) {
   writeJson(path.join(OUTPUT_ROOT, "allowlists.json"), allowlists);
 
   const { totalCount, inventoryDiscussions, preparedDiscussions } = targetDiscussionNumber
-    ? await fetchDiscussionByNumber(github, targetDiscussionNumber)
-    : await fetchDiscussions(github, maxDiscussions);
+    ? await fetchDiscussionByNumber(github, targetDiscussionNumber, targetRepository, targetCategoryInfo)
+    : await fetchDiscussions(github, maxDiscussions, targetRepository, targetCategoryInfo);
 
   writeJsonl(path.join(OUTPUT_ROOT, "inventory.jsonl"), inventoryDiscussions);
   writeJsonl(path.join(OUTPUT_ROOT, "discussions.jsonl"), preparedDiscussions);
   fs.writeFileSync(path.join(OUTPUT_ROOT, "discussions.count.txt"), `${totalCount}\n`, "utf8");
 
   writeJson(path.join(OUTPUT_ROOT, "summary.json"), {
-    target_repository: `${TARGET_OWNER}/${TARGET_REPO}`,
+    target_repository: targetRepository.full_name,
+    target_category: targetCategoryInfo ? targetCategoryInfo.slug : DEFAULT_TARGET_CATEGORY,
     target_discussion_number: targetDiscussionNumber,
     total_discussion_count: totalCount,
     inventory_discussion_count: inventoryDiscussions.length,
@@ -505,9 +650,9 @@ async function main({ core, github }) {
   core.info("Prepared scan inputs for current discussion batch");
   core.info(`Available categories: ${categories.length}`);
   core.info(`Available labels: ${labels.length}`);
-  if (workflowMaxDiscussions) {
-    core.info(`Workflow update-discussion.max is ${workflowMaxDiscussions}; fetching ${maxDiscussions} discussions`);
-  }
+  core.info(`Target max discussions is ${maxDiscussions}`);
+  core.info(`Target discussion category is ${targetCategoryInfo ? targetCategoryInfo.slug : DEFAULT_TARGET_CATEGORY}`);
+  core.info(`Target discussion repository is ${targetRepository.full_name}`);
   if (targetDiscussionNumber) {
     core.info(`Targeted discussion run for #${targetDiscussionNumber}`);
   }
