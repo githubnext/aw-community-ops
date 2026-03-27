@@ -70,21 +70,6 @@ This workflow is dispatch-only. The target repository forwards every non-bot lab
 
 Each repository-dispatched run analyses only the forwarded event payload it receives. Once the event survives local filtering, treat it as immediately actionable because the run represents a single correction signal.
 
-## Trusted Actor Allow-List
-
-Only label changes made by the following actors count as correction signals. **Skip all other events.**
-
-- `samus-aran`
-- `queenofcorgis`
-- `akash1134`
-- `ghostinhershell`
-- `shinybrightstar`
-- `ebndev`
-- `mecodeatlas`
-- `mnkiefer`
-
-If an event's actor login does not appear in this list, ignore it entirely.
-
 ## Your Task
 
 ### Step 1: Read context
