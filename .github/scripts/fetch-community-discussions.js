@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DEFAULT_TARGET_REPOSITORY = "community/community";
+const DEFAULT_TARGET_REPOSITORY = "githubnext/aw-community-discussions";
 const DEFAULT_MAX_DISCUSSIONS = 100;
 const DEFAULT_TARGET_CATEGORY = "all";
 const OUTPUT_ROOT = process.env.OUTPUT_ROOT || "/tmp/gh-aw/agent/discussion-scan";

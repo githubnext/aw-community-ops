@@ -22,8 +22,10 @@ steps:
         fs.mkdirSync(outputDir, { recursive: true });
 
         const summaryTitlePrefix = "[Daily Auto-labelling Summary]";
-        const workItemLabel = "labelling-correction-work-item";
+        const signalLabel = "labelling-correction-signal";
+        const parentLabel = "labelling-correction-parent";
         const workflowPaths = new Set([
+          ".github/workflows/labelling-correction-collector.yml",
           ".github/workflows/auto-labelling.lock.yml",
           ".github/workflows/labelling-correction-feedback.lock.yml",
         ]);
@@ -56,13 +58,21 @@ steps:
           };
         };
 
-        const extractPatternKey = (body) => {
+        const parseHiddenJson = (body, marker) => {
           if (!body) {
             return null;
           }
 
-          const match = body.match(/^Pattern key:\s*(.+)$/im);
-          return match ? match[1].trim() : null;
+          const match = body.match(new RegExp(`<!-- ${marker}\\n([\\s\\S]*?)\\n-->`));
+          if (!match) {
+            return null;
+          }
+
+          try {
+            return JSON.parse(match[1]);
+          } catch {
+            return null;
+          }
         };
 
         const issues = await github.paginate(github.rest.issues.listForRepo, {
@@ -94,9 +104,38 @@ steps:
             };
           });
 
-        const correctionWorkItems = issues
+        const correctionSignals = issues
           .filter((issue) => !issue.pull_request)
-          .filter((issue) => hasLabel(issue, workItemLabel))
+          .filter((issue) => hasLabel(issue, signalLabel))
+          .map((issue) => {
+            const metadata = parseHiddenJson(issue.body || "", "labelling-correction-metadata") || {};
+            const history = parseHiddenJson(issue.body || "", "labelling-correction-history") || [];
+            const latest = history[history.length - 1] || null;
+
+            return {
+              number: issue.number,
+              title: issue.title,
+              state: issue.state,
+              created_at: issue.created_at,
+              updated_at: issue.updated_at,
+              closed_at: issue.closed_at,
+              html_url: issue.html_url,
+              signal_key: metadata.signal_key || null,
+              discussion_number: metadata.discussion_number || null,
+              category_slug: metadata.category_slug || null,
+              category_name: metadata.category_name || null,
+              current_labels: Array.isArray(metadata.current_labels) ? metadata.current_labels : [],
+              correction_count: history.length,
+              latest_event_type: latest?.event_type || null,
+              latest_label: latest?.label || null,
+              labels: (issue.labels || []).map(labelName).filter(Boolean),
+              body: issue.body || "",
+            };
+          });
+
+        const correctionParents = issues
+          .filter((issue) => !issue.pull_request)
+          .filter((issue) => hasLabel(issue, parentLabel))
           .map((issue) => ({
             number: issue.number,
             title: issue.title,
@@ -105,9 +144,6 @@ steps:
             updated_at: issue.updated_at,
             closed_at: issue.closed_at,
             html_url: issue.html_url,
-            pattern_key: extractPatternKey(issue.body || ""),
-            labels: (issue.labels || []).map(labelName).filter(Boolean),
-            body: issue.body || "",
           }));
 
         const workflows = await github.paginate(github.rest.actions.listRepoWorkflows, {
@@ -155,7 +191,8 @@ steps:
             last_30_days_start: thirtyDaysAgo.toISOString(),
           },
           auto_labelling_summaries: autoLabellingSummaries,
-          correction_work_items: correctionWorkItems,
+          correction_signals: correctionSignals,
+          correction_parents: correctionParents,
           workflow_runs: workflowRuns.sort((left, right) => new Date(right.created_at) - new Date(left.created_at)),
         };
 
@@ -185,8 +222,9 @@ It contains:
 
 - `windows` with ISO timestamps for the last 7 days, previous 7 days, and last 30 days
 - `auto_labelling_summaries` with recent daily summary issues, including parsed `reviewed` and `changed` counts when available
-- `correction_work_items` with open and closed correction issues, including `pattern_key` when present
-- `workflow_runs` for the `Label Discussions` and `Labelling Correction Feedback` workflows over the last 30 days
+- `correction_signals` with open and closed deterministic correction signal issues, including category and latest-label metadata when present
+- `correction_parents` with parent intake issues used to group signal sub-issues
+- `workflow_runs` for the `Label Discussions`, `Labelling Correction Collector`, and `Labelling Correction Feedback` workflows over the last 30 days
 
 ## Analysis Goals
 
@@ -198,11 +236,11 @@ At minimum, calculate or infer:
 - Label changes applied in the last 7 days
 - Label-change rate over the last 7 days, ideally as $changed / reviewed$
 - Comparison with the previous 7-day window when enough data exists
-- Number of correction-feedback workflow runs in the last 7 days as a proxy for incoming trusted staff correction signals
-- Count of currently open correction work items
-- Count of correction work items created in the last 7 and 30 days
-- Oldest open correction work item age
-- The most repeated or highest-pressure open `Pattern key:` values
+- Number of correction-collector workflow runs in the last 7 days as a proxy for incoming trusted staff correction signals
+- Count of currently open correction signals
+- Count of correction signals created in the last 7 and 30 days
+- Oldest open correction signal age
+- The highest-pressure open category / label / event clusters you can infer from the signal metadata
 
 Do not overclaim precision. If a metric is incomplete because daily summary issues did not parse cleanly or runs are missing, say so directly and use the best conservative estimate from the available data.
 
@@ -230,29 +268,29 @@ Use this structure:
 - Discussions reviewed last 7 days
 - Label changes applied last 7 days
 - Change rate last 7 days
-- Correction-feedback runs last 7 days
-- Open correction work items
+- Correction-collector runs last 7 days
+- Open correction signals
 
 ### Correction Pressure
 
 Explain where correction pressure is showing up.
 
-Include the most repeated open `Pattern key:` items if available and any obvious label/category clusters.
+Include the most repeated category / label / event clusters if available and note whether raw pressure appears to be concentrated into one or two parent intake issues or spread across many.
 
 ### Open Instruction Debt
 
 Summarize whether the correction backlog is shrinking, steady, or growing.
 
-Mention the age of the oldest open work item and whether the backlog looks actionable or stale.
+Mention the age of the oldest open correction signal, how many open parent intake issues exist, and whether the backlog looks actionable or stale.
 
 ### Recommendations
 
-Provide 2-4 concrete next steps for maintainers. Prefer actions tied to `.github/instructions/community-discussion-labeling.md`, recurring patterns, or operational cleanup.
+Provide 2-4 concrete next steps for maintainers. Prefer actions tied to `.github/instructions/community-discussion-labeling.md`, parent intake issue triage, recurring patterns, or operational cleanup.
 
 Use `<details>` blocks for:
 
 - Recent daily summary issue breakdowns
-- Open correction work item breakdowns
+- Open correction signal breakdowns
 - Recent workflow run references
 
 Under `### References`, include up to 3 of the most relevant workflow run URLs using `[§RUN_NUMBER](RUN_URL)` format.

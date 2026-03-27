@@ -24,7 +24,7 @@ permissions:
   discussions: read
 
 env:
-  DEFAULT_TARGET_REPOSITORY: community/community
+  DEFAULT_TARGET_REPOSITORY: githubnext/aw-community-discussions
   DEFAULT_MAX_DISCUSSIONS: "120"
   DEFAULT_TARGET_CATEGORY: all
 
@@ -49,7 +49,7 @@ tools:
     toolsets: [discussions, repos]
 
 safe-outputs:
-  allowed-github-references: [community/community-ops]
+  allowed-github-references: [githubnext/aw-community-ops]
   create-issue:
     github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
     title-prefix: "[Daily Auto-labelling Summary]"

@@ -21,7 +21,7 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"f13c135d64de557edd299af09cf6205aa30c1dc4faee42d93e7f5b2441d99a64","compiler_version":"v0.64.2","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"3c67eae6309e1b20de47b02862508f7fea107378a12ab37c03e9dfe6600018aa","compiler_version":"v0.64.2","strict":true,"agent_id":"copilot"}
 
 name: "Labelling Health Report"
 "on":
@@ -125,14 +125,14 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_76f4246b4d23c845_EOF'
+          cat << 'GH_AW_PROMPT_57680cf796d76c42_EOF'
           <system>
-          GH_AW_PROMPT_76f4246b4d23c845_EOF
+          GH_AW_PROMPT_57680cf796d76c42_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_76f4246b4d23c845_EOF'
+          cat << 'GH_AW_PROMPT_57680cf796d76c42_EOF'
           <safe-output-tools>
           Tools: create_issue, missing_tool, missing_data, noop
           </safe-output-tools>
@@ -164,14 +164,14 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_76f4246b4d23c845_EOF
+          GH_AW_PROMPT_57680cf796d76c42_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_76f4246b4d23c845_EOF'
+          cat << 'GH_AW_PROMPT_57680cf796d76c42_EOF'
           </system>
-          GH_AW_PROMPT_76f4246b4d23c845_EOF
-          cat << 'GH_AW_PROMPT_76f4246b4d23c845_EOF'
+          GH_AW_PROMPT_57680cf796d76c42_EOF
+          cat << 'GH_AW_PROMPT_57680cf796d76c42_EOF'
           {{#runtime-import .github/workflows/labelling-health-report.md}}
-          GH_AW_PROMPT_76f4246b4d23c845_EOF
+          GH_AW_PROMPT_57680cf796d76c42_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -284,7 +284,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           github-token: ${{ github.token }}
-          script: "const fs = require(\"node:fs\");\nconst path = require(\"node:path\");\n\nconst outputDir = \"/tmp/gh-aw/agent/labelling-health\";\nfs.mkdirSync(outputDir, { recursive: true });\n\nconst summaryTitlePrefix = \"[Daily Auto-labelling Summary]\";\nconst workItemLabel = \"labelling-correction-work-item\";\nconst workflowPaths = new Set([\n  \".github/workflows/auto-labelling.lock.yml\",\n  \".github/workflows/labelling-correction-feedback.lock.yml\",\n]);\n\nconst now = new Date();\nconst daysAgo = (days) => {\n  const value = new Date(now);\n  value.setUTCDate(value.getUTCDate() - days);\n  return value;\n};\n\nconst sevenDaysAgo = daysAgo(7);\nconst fourteenDaysAgo = daysAgo(14);\nconst thirtyDaysAgo = daysAgo(30);\n\nconst labelName = (label) => (typeof label === \"string\" ? label : label?.name || \"\");\nconst hasLabel = (issue, wantedLabel) => Array.isArray(issue.labels) && issue.labels.some((label) => labelName(label) === wantedLabel);\n\nconst parseSummaryMetrics = (body) => {\n  if (!body) {\n    return { reviewed: null, changed: null };\n  }\n\n  const reviewedMatch = body.match(/total discussions reviewed[^0-9]*(\\d+)/i);\n  const changedMatch = body.match(/total label changes applied[^0-9]*(\\d+)/i);\n\n  return {\n    reviewed: reviewedMatch ? Number(reviewedMatch[1]) : null,\n    changed: changedMatch ? Number(changedMatch[1]) : null,\n  };\n};\n\nconst extractPatternKey = (body) => {\n  if (!body) {\n    return null;\n  }\n\n  const match = body.match(/^Pattern key:\\s*(.+)$/im);\n  return match ? match[1].trim() : null;\n};\n\nconst issues = await github.paginate(github.rest.issues.listForRepo, {\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  state: \"all\",\n  per_page: 100,\n  sort: \"created\",\n  direction: \"desc\",\n});\n\nconst autoLabellingSummaries = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => typeof issue.title === \"string\" && issue.title.startsWith(summaryTitlePrefix))\n  .filter((issue) => new Date(issue.created_at) >= thirtyDaysAgo)\n  .map((issue) => {\n    const metrics = parseSummaryMetrics(issue.body || \"\");\n    return {\n      number: issue.number,\n      title: issue.title,\n      state: issue.state,\n      created_at: issue.created_at,\n      updated_at: issue.updated_at,\n      closed_at: issue.closed_at,\n      html_url: issue.html_url,\n      reviewed: metrics.reviewed,\n      changed: metrics.changed,\n      body: issue.body || \"\",\n    };\n  });\n\nconst correctionWorkItems = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => hasLabel(issue, workItemLabel))\n  .map((issue) => ({\n    number: issue.number,\n    title: issue.title,\n    state: issue.state,\n    created_at: issue.created_at,\n    updated_at: issue.updated_at,\n    closed_at: issue.closed_at,\n    html_url: issue.html_url,\n    pattern_key: extractPatternKey(issue.body || \"\"),\n    labels: (issue.labels || []).map(labelName).filter(Boolean),\n    body: issue.body || \"\",\n  }));\n\nconst workflows = await github.paginate(github.rest.actions.listRepoWorkflows, {\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  per_page: 100,\n});\n\nconst selectedWorkflows = workflows.filter((workflow) => workflowPaths.has(workflow.path));\n\nconst workflowRuns = [];\nfor (const workflow of selectedWorkflows) {\n  const runsResponse = await github.rest.actions.listWorkflowRuns({\n    owner: context.repo.owner,\n    repo: context.repo.repo,\n    workflow_id: workflow.id,\n    per_page: 30,\n  });\n\n  for (const run of runsResponse.data.workflow_runs || []) {\n    if (new Date(run.created_at) < thirtyDaysAgo) {\n      continue;\n    }\n\n    workflowRuns.push({\n      workflow_name: workflow.name,\n      workflow_path: workflow.path,\n      run_id: run.id,\n      run_number: run.run_number,\n      event: run.event,\n      status: run.status,\n      conclusion: run.conclusion,\n      created_at: run.created_at,\n      updated_at: run.updated_at,\n      html_url: run.html_url,\n    });\n  }\n}\n\nconst payload = {\n  generated_at: now.toISOString(),\n  windows: {\n    last_7_days_start: sevenDaysAgo.toISOString(),\n    previous_7_days_start: fourteenDaysAgo.toISOString(),\n    last_30_days_start: thirtyDaysAgo.toISOString(),\n  },\n  auto_labelling_summaries: autoLabellingSummaries,\n  correction_work_items: correctionWorkItems,\n  workflow_runs: workflowRuns.sort((left, right) => new Date(right.created_at) - new Date(left.created_at)),\n};\n\nfs.writeFileSync(path.join(outputDir, \"health-data.json\"), `${JSON.stringify(payload, null, 2)}\\n`, \"utf8\");\n"
+          script: "const fs = require(\"node:fs\");\nconst path = require(\"node:path\");\n\nconst outputDir = \"/tmp/gh-aw/agent/labelling-health\";\nfs.mkdirSync(outputDir, { recursive: true });\n\nconst summaryTitlePrefix = \"[Daily Auto-labelling Summary]\";\nconst signalLabel = \"labelling-correction-signal\";\nconst parentLabel = \"labelling-correction-parent\";\nconst workflowPaths = new Set([\n  \".github/workflows/labelling-correction-collector.yml\",\n  \".github/workflows/auto-labelling.lock.yml\",\n  \".github/workflows/labelling-correction-feedback.lock.yml\",\n]);\n\nconst now = new Date();\nconst daysAgo = (days) => {\n  const value = new Date(now);\n  value.setUTCDate(value.getUTCDate() - days);\n  return value;\n};\n\nconst sevenDaysAgo = daysAgo(7);\nconst fourteenDaysAgo = daysAgo(14);\nconst thirtyDaysAgo = daysAgo(30);\n\nconst labelName = (label) => (typeof label === \"string\" ? label : label?.name || \"\");\nconst hasLabel = (issue, wantedLabel) => Array.isArray(issue.labels) && issue.labels.some((label) => labelName(label) === wantedLabel);\n\nconst parseSummaryMetrics = (body) => {\n  if (!body) {\n    return { reviewed: null, changed: null };\n  }\n\n  const reviewedMatch = body.match(/total discussions reviewed[^0-9]*(\\d+)/i);\n  const changedMatch = body.match(/total label changes applied[^0-9]*(\\d+)/i);\n\n  return {\n    reviewed: reviewedMatch ? Number(reviewedMatch[1]) : null,\n    changed: changedMatch ? Number(changedMatch[1]) : null,\n  };\n};\n\nconst parseHiddenJson = (body, marker) => {\n  if (!body) {\n    return null;\n  }\n\n  const match = body.match(new RegExp(`<!-- ${marker}\\\\n([\\\\s\\\\S]*?)\\\\n-->`));\n  if (!match) {\n    return null;\n  }\n\n  try {\n    return JSON.parse(match[1]);\n  } catch {\n    return null;\n  }\n};\n\nconst issues = await github.paginate(github.rest.issues.listForRepo, {\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  state: \"all\",\n  per_page: 100,\n  sort: \"created\",\n  direction: \"desc\",\n});\n\nconst autoLabellingSummaries = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => typeof issue.title === \"string\" && issue.title.startsWith(summaryTitlePrefix))\n  .filter((issue) => new Date(issue.created_at) >= thirtyDaysAgo)\n  .map((issue) => {\n    const metrics = parseSummaryMetrics(issue.body || \"\");\n    return {\n      number: issue.number,\n      title: issue.title,\n      state: issue.state,\n      created_at: issue.created_at,\n      updated_at: issue.updated_at,\n      closed_at: issue.closed_at,\n      html_url: issue.html_url,\n      reviewed: metrics.reviewed,\n      changed: metrics.changed,\n      body: issue.body || \"\",\n    };\n  });\n\nconst correctionSignals = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => hasLabel(issue, signalLabel))\n  .map((issue) => {\n    const metadata = parseHiddenJson(issue.body || \"\", \"labelling-correction-metadata\") || {};\n    const history = parseHiddenJson(issue.body || \"\", \"labelling-correction-history\") || [];\n    const latest = history[history.length - 1] || null;\n\n    return {\n      number: issue.number,\n      title: issue.title,\n      state: issue.state,\n      created_at: issue.created_at,\n      updated_at: issue.updated_at,\n      closed_at: issue.closed_at,\n      html_url: issue.html_url,\n      signal_key: metadata.signal_key || null,\n      discussion_number: metadata.discussion_number || null,\n      category_slug: metadata.category_slug || null,\n      category_name: metadata.category_name || null,\n      current_labels: Array.isArray(metadata.current_labels) ? metadata.current_labels : [],\n      correction_count: history.length,\n      latest_event_type: latest?.event_type || null,\n      latest_label: latest?.label || null,\n      labels: (issue.labels || []).map(labelName).filter(Boolean),\n      body: issue.body || \"\",\n    };\n  });\n\nconst correctionParents = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => hasLabel(issue, parentLabel))\n  .map((issue) => ({\n    number: issue.number,\n    title: issue.title,\n    state: issue.state,\n    created_at: issue.created_at,\n    updated_at: issue.updated_at,\n    closed_at: issue.closed_at,\n    html_url: issue.html_url,\n  }));\n\nconst workflows = await github.paginate(github.rest.actions.listRepoWorkflows, {\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  per_page: 100,\n});\n\nconst selectedWorkflows = workflows.filter((workflow) => workflowPaths.has(workflow.path));\n\nconst workflowRuns = [];\nfor (const workflow of selectedWorkflows) {\n  const runsResponse = await github.rest.actions.listWorkflowRuns({\n    owner: context.repo.owner,\n    repo: context.repo.repo,\n    workflow_id: workflow.id,\n    per_page: 30,\n  });\n\n  for (const run of runsResponse.data.workflow_runs || []) {\n    if (new Date(run.created_at) < thirtyDaysAgo) {\n      continue;\n    }\n\n    workflowRuns.push({\n      workflow_name: workflow.name,\n      workflow_path: workflow.path,\n      run_id: run.id,\n      run_number: run.run_number,\n      event: run.event,\n      status: run.status,\n      conclusion: run.conclusion,\n      created_at: run.created_at,\n      updated_at: run.updated_at,\n      html_url: run.html_url,\n    });\n  }\n}\n\nconst payload = {\n  generated_at: now.toISOString(),\n  windows: {\n    last_7_days_start: sevenDaysAgo.toISOString(),\n    previous_7_days_start: fourteenDaysAgo.toISOString(),\n    last_30_days_start: thirtyDaysAgo.toISOString(),\n  },\n  auto_labelling_summaries: autoLabellingSummaries,\n  correction_signals: correctionSignals,\n  correction_parents: correctionParents,\n  workflow_runs: workflowRuns.sort((left, right) => new Date(right.created_at) - new Date(left.created_at)),\n};\n\nfs.writeFileSync(path.join(outputDir, \"health-data.json\"), `${JSON.stringify(payload, null, 2)}\\n`, \"utf8\");\n"
 
       - name: Configure Git credentials
         env:
@@ -335,12 +335,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_f856069a1b26a046_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_4185f6332e87e139_EOF'
           {"create_issue":{"close_older_issues":true,"expires":720,"max":1,"title_prefix":"[Labelling Health]"},"mentions":{"enabled":false},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_f856069a1b26a046_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_4185f6332e87e139_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_dac1f22d3312d304_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_709c418b3ce1412d_EOF'
           {
             "description_suffixes": {
               "create_issue": " CONSTRAINTS: Maximum 1 issue(s) can be created. Title will be prefixed with \"[Labelling Health]\"."
@@ -348,8 +348,8 @@ jobs:
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_dac1f22d3312d304_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_4152fe5e7a57bfbe_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_709c418b3ce1412d_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_d02b86c9317e05d2_EOF'
           {
             "create_issue": {
               "defaultMax": 1,
@@ -442,7 +442,7 @@ jobs:
               }
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_4152fe5e7a57bfbe_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_d02b86c9317e05d2_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -510,7 +510,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.6'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_b2c23f1aefbdabb1_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_d216aa16d0d0b6de_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -551,7 +551,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_b2c23f1aefbdabb1_EOF
+          GH_AW_MCP_CONFIG_d216aa16d0d0b6de_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:

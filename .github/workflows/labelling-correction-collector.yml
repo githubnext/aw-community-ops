@@ -1,0 +1,36 @@
+name: Labelling Correction Collector
+
+on:
+  repository_dispatch:
+    types:
+      - staff-label-correction
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Fetch current discussion snapshot
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.READ_COMM_COMM_DISCUSSIONS_TOKEN }}
+          script: |
+            const path = require("node:path");
+            const { main } = require(path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "fetch-labelling-correction-snapshot.js"));
+            await main({ core, github, context });
+
+      - name: Sync correction intake issue
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
+          script: |
+            const path = require("node:path");
+            const { main } = require(path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "sync-labelling-correction-issue.js"));
+            await main({ core, github, context });

@@ -1,27 +1,28 @@
 # community-ops
 
-This repo hosts automated discussion labeling logic for [`community/community`](https://github.com/community/community) built with [GitHub Agentic Workflows](https://github.com/github/gh-aw).
+This repo hosts automated discussion labeling logic for [`githubnext/aw-community-discussions`](https://github.com/githubnext/aw-community-discussions) built with [GitHub Agentic Workflows](https://github.com/github/gh-aw).
 
 ## Workflows
 
 | Workflow | What it does | Trigger |
 | --- | --- | --- |
 | [`auto-labelling.md`](.github/workflows/auto-labelling.md) | Labels discussions using the [instruction file](.github/instructions/community-discussion-labeling.md) | daily, `workflow_dispatch` |
-| [`labelling-correction-feedback.md`](.github/workflows/labelling-correction-feedback.md) | Detects trusted staff label corrections and proposes instruction updates | `repository_dispatch` |
-| [`labelling-health-report.md`](.github/workflows/labelling-health-report.md) | Publishes a rolling report on labelling quality, correction pressure, and open instruction debt | every 2 days, `workflow_dispatch` |
+| [`labelling-correction-collector.yml`](.github/workflows/labelling-correction-collector.yml) | Deterministically collects trusted staff label corrections into parent issues with linked signal sub-issues | `repository_dispatch` |
+| [`labelling-correction-feedback.md`](.github/workflows/labelling-correction-feedback.md) | Reviews one collected parent issue and raises an instruction-update PR when the evidence supports it | `workflow_dispatch`, `issues.assigned` |
+| [`labelling-health-report.md`](.github/workflows/labelling-health-report.md) | Publishes a rolling report on labelling quality, correction pressure, and open instruction debt | every 2 days |
 
 ### Actions secrets
 
 | Secret | Workflows | Permissions needed |
 | --- | --- | --- |
 | `COPILOT_GITHUB_TOKEN` | All | Copilot CLI auth |
-| `READ_COMM_COMM_DISCUSSIONS_TOKEN` | `auto-labelling` | Discussions (read), Contents (read) on the target repo |
-| `WRITE_TO_COMM_OPS_TOKEN` | `auto-labelling`, `labelling-correction-feedback` | Issues (write) on the sidecar repo |
+| `READ_COMM_COMM_DISCUSSIONS_TOKEN` | `auto-labelling`, `labelling-correction-collector` | Discussions (read), Contents (read) on the target repo |
+| `WRITE_TO_COMM_OPS_TOKEN` | `auto-labelling`, `labelling-correction-collector` | Issues (write) on the sidecar repo |
 
 ## Recompiling
 
 Edits to [the instruction file](.github/instructions/community-discussion-labeling.md) alone do *not* require recompilation.
-Only use the `compile` command if you are making changes to the actual workflow files (e.g. `auto-labelling.md`, `labelling-correction-feedback.md`, `labelling-health-report.md`):
+Only use the `compile` command if you are making changes to the actual markdown workflow files (e.g. `auto-labelling.md`, `labelling-correction-feedback.md`, `labelling-health-report.md`):
 
 ```bash
 gh aw compile <workflow-name>   # e.g. auto-labelling, labelling-correction-feedback, labelling-health-report
@@ -30,14 +31,18 @@ gh aw compile <workflow-name>   # e.g. auto-labelling, labelling-correction-feed
 ## Go-Live
 
 1. Set the [secrets](#actions-secrets) above in this repo and the target repo.
-2. Navigate to the workflow in the [GitHub Actions](https://github.com/community/community-ops/actions) tab and trigger a `workflow_dispatch` for each workflow once.
-3. Watch the first week of scheduled runs before tuning thresholds or prompts.
+2. Trigger [`auto-labelling.md`](.github/workflows/auto-labelling.md) once with `workflow_dispatch` to verify the discussion scan and summary path.
+3. Trigger [`labelling-correction-feedback.md`](.github/workflows/labelling-correction-feedback.md) once with a known parent intake issue number, or wait until a parent issue is assigned to Copilot.
+4. Validate [`labelling-correction-collector.yml`](.github/workflows/labelling-correction-collector.yml) by sending one `staff-label-correction` `repository_dispatch` event.
+5. Watch the first scheduled run of [`labelling-health-report.md`](.github/workflows/labelling-health-report.md) before tuning thresholds or prompts.
 
-### Labelling correction feedback (triage + instruction updates)
+### Labelling correction feedback (deterministic intake + agentic instruction updates)
 
-`labelling-correction-feedback` opens a **Feedback Issue Group** (parent issue) and links related sub-issues underneath it.
+`labelling-correction-collector.yml` creates one deterministic **signal sub-issue** per corrected discussion and links it under a **parent intake issue**. Each signal sub-issue includes the corrected discussion's current title, current body text, current category, current labels, and full trusted-correction history.
 
-**How to use the Feedback Issue Group**
-- Treat the **group issue** as the source of truth for deciding what should change in [instruction file](.github/instructions/community-discussion-labeling.md).
-- Use **sub-issues** as supporting examples/evidence, not as the driver for repo-wide instruction changes.
-- When the group reflects a confirmed pattern, **assign the group issue to Copilot** to propose a single consolidated docs update.
+### How to use the Parent Intake Issue
+
+- Treat the **parent intake issue** as the source of truth for one review batch.
+- Treat **signal sub-issues** as raw evidence, not as instruction-update work items.
+- When a parent intake issue has enough evidence, either run `labelling-correction-feedback` with its issue number or assign that parent issue to Copilot.
+- `labelling-correction-feedback` will review that one parent issue, update [the instruction file](.github/instructions/community-discussion-labeling.md) if warranted, and raise a single draft PR.
