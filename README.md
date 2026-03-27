@@ -15,8 +15,8 @@ This repo hosts automated discussion labeling logic for [`community/community`](
 | Secret | Workflows | Permissions needed |
 | --- | --- | --- |
 | `COPILOT_GITHUB_TOKEN` | All | Copilot CLI auth |
-| `READ_COMM_COMM_DISCUSSIONS_TOKEN` | `auto-labelling` | Discussions (read), Contents (read) on the `target-repo` |
-| `WRITE_TO_COMM_OPS_TOKEN` | `auto-labelling`, `labelling-correction-feedback` | Issues (write) on this sidecar repo |
+| `READ_COMM_COMM_DISCUSSIONS_TOKEN` | `auto-labelling` | Discussions (read), Contents (read) on the target repo |
+| `WRITE_TO_COMM_OPS_TOKEN` | `auto-labelling`, `labelling-correction-feedback` | Issues (write) on the sidecar repo |
 
 ## Recompiling
 
