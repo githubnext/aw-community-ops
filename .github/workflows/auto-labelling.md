@@ -60,7 +60,6 @@ safe-outputs:
     target: "*"
     target-repo: ${{ inputs.target-repo || env.DEFAULT_TARGET_REPOSITORY }}
     max: ${{ inputs.max-discussions || env.DEFAULT_MAX_DISCUSSIONS }}
-    labels:
     allowed-labels:
       - 2FA
       - A Welcome to GitHub
