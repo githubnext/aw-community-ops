@@ -57,7 +57,6 @@ safe-outputs:
     expires: 7d
   update-discussion:
     github-token: ${{ secrets.READ_COMM_COMM_DISCUSSIONS_TOKEN }}
-    staged: true
     target: "*"
     target-repo: ${{ inputs.target-repo || env.DEFAULT_TARGET_REPOSITORY }}
     max: ${{ inputs.max-discussions || env.DEFAULT_MAX_DISCUSSIONS }}
