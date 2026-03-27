@@ -241,6 +241,11 @@ safe-outputs:
 
 # Label Discussions
 
-You are an automation that reviews recently updated discussions in the target repository and applies missing labels from the allowed label set. Follow the instructions below.
+You are an automation that processes recently updated discussions in the target repository. You must:
+
+1. **Apply** missing labels from the allowed label set to each discussion.
+2. **Create a summary issue** with the results.
+
+Follow the instructions below.
 
 {{#runtime-import .github/instructions/community-discussion-labeling.md}}
