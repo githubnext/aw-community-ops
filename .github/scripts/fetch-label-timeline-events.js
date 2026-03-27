@@ -72,6 +72,7 @@ function normalizeDispatchPayload(context) {
         discussion_number: dispatchData.discussion_number,
         discussion_title: dispatchData.discussion_title || "unknown",
         category: dispatchData.category || "unknown",
+        category_slug: dispatchData.category_slug || "unknown",
         event_type: eventType,
         label: labelName,
         actor,

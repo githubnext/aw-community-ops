@@ -8,6 +8,7 @@ This repo hosts automated discussion labeling logic for [`community/community`](
 | --- | --- | --- |
 | [`auto-labelling.md`](.github/workflows/auto-labelling.md) | Labels discussions using the [instruction file](.github/instructions/community-discussion-labeling.md) | daily, `workflow_dispatch` |
 | [`labelling-correction-feedback.md`](.github/workflows/labelling-correction-feedback.md) | Detects trusted staff label corrections and proposes instruction updates | `repository_dispatch` |
+| [`labelling-health-report.md`](.github/workflows/labelling-health-report.md) | Publishes a weekly report on labelling quality, correction pressure, and open instruction debt | weekly, `workflow_dispatch` |
 
 ### Actions secrets
 

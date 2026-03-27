@@ -21,25 +21,30 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"a9e1dfcbc00214bac02a708ba61074a95b5c7a75ffeada131eb63c4d0590c6ef","compiler_version":"v0.64.2","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"cd334990a26266f2cdbacfad9693891b5d9741dee0c2476e29d342833fc2f786","compiler_version":"v0.64.2","strict":true,"agent_id":"copilot"}
 
-name: "Labelling Correction Feedback"
+name: "Labelling Health Report"
 "on":
-  repository_dispatch:
-    types:
-    - staff-label-correction
+  schedule:
+  - cron: "23 2 * * 6"
+    # Friendly format: weekly (scattered)
+  workflow_dispatch:
+    inputs:
+      aw_context:
+        default: ""
+        description: Agent caller context (used internally by Agentic Workflows).
+        required: false
+        type: string
 
 permissions: {}
 
 concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
-run-name: "Labelling Correction Feedback"
+run-name: "Labelling Health Report"
 
 jobs:
   activation:
-    needs: pre_activation
-    if: needs.pre_activation.outputs.activated == 'true'
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -63,7 +68,7 @@ jobs:
           GH_AW_INFO_VERSION: "latest"
           GH_AW_INFO_AGENT_VERSION: "latest"
           GH_AW_INFO_CLI_VERSION: "v0.64.2"
-          GH_AW_INFO_WORKFLOW_NAME: "Labelling Correction Feedback"
+          GH_AW_INFO_WORKFLOW_NAME: "Labelling Health Report"
           GH_AW_INFO_EXPERIMENTAL: "false"
           GH_AW_INFO_SUPPORTS_TOOLS_ALLOWLIST: "true"
           GH_AW_INFO_STAGED: "false"
@@ -97,7 +102,7 @@ jobs:
       - name: Check workflow file timestamps
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GH_AW_WORKFLOW_FILE: "labelling-correction-feedback.lock.yml"
+          GH_AW_WORKFLOW_FILE: "labelling-health-report.lock.yml"
         with:
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
@@ -120,16 +125,16 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_eb881c741b93851c_EOF'
+          cat << 'GH_AW_PROMPT_21220a3653ac2e6b_EOF'
           <system>
-          GH_AW_PROMPT_eb881c741b93851c_EOF
+          GH_AW_PROMPT_21220a3653ac2e6b_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_eb881c741b93851c_EOF'
+          cat << 'GH_AW_PROMPT_21220a3653ac2e6b_EOF'
           <safe-output-tools>
-          Tools: create_issue(max:3), close_issue(max:3), update_issue(max:3), missing_tool, missing_data, noop
+          Tools: create_issue, missing_tool, missing_data, noop
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -159,14 +164,14 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_eb881c741b93851c_EOF
+          GH_AW_PROMPT_21220a3653ac2e6b_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_eb881c741b93851c_EOF'
+          cat << 'GH_AW_PROMPT_21220a3653ac2e6b_EOF'
           </system>
-          GH_AW_PROMPT_eb881c741b93851c_EOF
-          cat << 'GH_AW_PROMPT_eb881c741b93851c_EOF'
-          {{#runtime-import .github/workflows/labelling-correction-feedback.md}}
-          GH_AW_PROMPT_eb881c741b93851c_EOF
+          GH_AW_PROMPT_21220a3653ac2e6b_EOF
+          cat << 'GH_AW_PROMPT_21220a3653ac2e6b_EOF'
+          {{#runtime-import .github/workflows/labelling-health-report.md}}
+          GH_AW_PROMPT_21220a3653ac2e6b_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -190,7 +195,6 @@ jobs:
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
-          GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED: ${{ needs.pre_activation.outputs.activated }}
         with:
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
@@ -209,8 +213,7 @@ jobs:
                 GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: process.env.GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER,
                 GH_AW_GITHUB_REPOSITORY: process.env.GH_AW_GITHUB_REPOSITORY,
                 GH_AW_GITHUB_RUN_ID: process.env.GH_AW_GITHUB_RUN_ID,
-                GH_AW_GITHUB_WORKSPACE: process.env.GH_AW_GITHUB_WORKSPACE,
-                GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED: process.env.GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED
+                GH_AW_GITHUB_WORKSPACE: process.env.GH_AW_GITHUB_WORKSPACE
               }
             });
       - name: Validate prompt placeholders
@@ -237,7 +240,9 @@ jobs:
     needs: activation
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
+      issues: read
     concurrency:
       group: "gh-aw-copilot-${{ github.workflow }}"
     env:
@@ -246,7 +251,7 @@ jobs:
       GH_AW_ASSETS_BRANCH: ""
       GH_AW_ASSETS_MAX_SIZE_KB: 0
       GH_AW_MCP_LOG_DIR: /tmp/gh-aw/mcp-logs/safeoutputs
-      GH_AW_WORKFLOW_ID_SANITIZED: labellingcorrectionfeedback
+      GH_AW_WORKFLOW_ID_SANITIZED: labellinghealthreport
     outputs:
       checkout_pr_success: ${{ steps.checkout-pr.outputs.checkout_pr_success || 'true' }}
       has_patch: ${{ steps.collect_output.outputs.has_patch }}
@@ -275,24 +280,11 @@ jobs:
         run: bash ${RUNNER_TEMP}/gh-aw/actions/configure_gh_for_ghe.sh
         env:
           GH_TOKEN: ${{ github.token }}
-      - env:
-          CLIENT_PAYLOAD: ${{ toJson(github.event.client_payload) }}
-          EVENT_NAME: ${{ github.event_name }}
-        name: Write feedback context
-        run: "mkdir -p /tmp/gh-aw/agent/labelling-correction\nprintf '%s' \"$EVENT_NAME\" > /tmp/gh-aw/agent/labelling-correction/event_name.txt\nnode <<'EOF'\nconst fs = require(\"node:fs\");\nconst path = require(\"node:path\");\n\nconst outputPath = path.join(\"/tmp/gh-aw/agent/labelling-correction\", \"context.json\");\nconst eventName = process.env.EVENT_NAME;\nconst context = {\n  event_name: eventName,\n  intake_mode: \"dispatch\",\n};\n\nif (eventName !== \"repository_dispatch\") {\n  throw new Error(`Unsupported event name: ${eventName}`);\n}\n\ncontext.dispatch_payload = JSON.parse(process.env.CLIENT_PAYLOAD || \"{}\");\n\nfs.writeFileSync(outputPath, `${JSON.stringify(context, null, 2)}\\n`, \"utf8\");\nEOF\n"
-      - name: Fetch label timeline events
+      - name: Fetch labelling health data
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           github-token: ${{ github.token }}
-          script: |
-            const path = require("node:path");
-            const { main } = require(path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "fetch-label-timeline-events.js"));
-            await main({ core });
-      - name: Fetch open correction work items
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        with:
-          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
-          script: "const fs = require(\"node:fs\");\nconst path = require(\"node:path\");\n\nconst outputPath = path.join(\"/tmp/gh-aw/agent/labelling-correction\", \"open-issues.json\");\nconst workItemLabel = \"labelling-correction-work-item\";\n\nconst issues = await github.paginate(github.rest.issues.listForRepo, {\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  state: \"open\",\n  per_page: 100,\n});\n\nconst filtered = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => Array.isArray(issue.labels) && issue.labels.some((label) => label && label.name === workItemLabel))\n  .map((issue) => ({\n    number: issue.number,\n    title: issue.title,\n    body: issue.body || \"\",\n    html_url: issue.html_url,\n    created_at: issue.created_at,\n    updated_at: issue.updated_at,\n  }));\n\nfs.writeFileSync(outputPath, `${JSON.stringify(filtered, null, 2)}\\n`, \"utf8\");\n"
+          script: "const fs = require(\"node:fs\");\nconst path = require(\"node:path\");\n\nconst outputDir = \"/tmp/gh-aw/agent/labelling-health\";\nfs.mkdirSync(outputDir, { recursive: true });\n\nconst summaryTitlePrefix = \"[Daily Auto-labelling Summary]\";\nconst workItemLabel = \"labelling-correction-work-item\";\nconst workflowPaths = new Set([\n  \".github/workflows/auto-labelling.lock.yml\",\n  \".github/workflows/labelling-correction-feedback.lock.yml\",\n]);\n\nconst now = new Date();\nconst daysAgo = (days) => {\n  const value = new Date(now);\n  value.setUTCDate(value.getUTCDate() - days);\n  return value;\n};\n\nconst sevenDaysAgo = daysAgo(7);\nconst fourteenDaysAgo = daysAgo(14);\nconst thirtyDaysAgo = daysAgo(30);\n\nconst labelName = (label) => (typeof label === \"string\" ? label : label?.name || \"\");\nconst hasLabel = (issue, wantedLabel) => Array.isArray(issue.labels) && issue.labels.some((label) => labelName(label) === wantedLabel);\n\nconst parseSummaryMetrics = (body) => {\n  if (!body) {\n    return { reviewed: null, changed: null };\n  }\n\n  const reviewedMatch = body.match(/total discussions reviewed[^0-9]*(\\d+)/i);\n  const changedMatch = body.match(/total label changes applied[^0-9]*(\\d+)/i);\n\n  return {\n    reviewed: reviewedMatch ? Number(reviewedMatch[1]) : null,\n    changed: changedMatch ? Number(changedMatch[1]) : null,\n  };\n};\n\nconst extractPatternKey = (body) => {\n  if (!body) {\n    return null;\n  }\n\n  const match = body.match(/^Pattern key:\\s*(.+)$/im);\n  return match ? match[1].trim() : null;\n};\n\nconst issues = await github.paginate(github.rest.issues.listForRepo, {\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  state: \"all\",\n  per_page: 100,\n  sort: \"created\",\n  direction: \"desc\",\n});\n\nconst autoLabellingSummaries = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => typeof issue.title === \"string\" && issue.title.startsWith(summaryTitlePrefix))\n  .filter((issue) => new Date(issue.created_at) >= thirtyDaysAgo)\n  .map((issue) => {\n    const metrics = parseSummaryMetrics(issue.body || \"\");\n    return {\n      number: issue.number,\n      title: issue.title,\n      state: issue.state,\n      created_at: issue.created_at,\n      updated_at: issue.updated_at,\n      closed_at: issue.closed_at,\n      html_url: issue.html_url,\n      reviewed: metrics.reviewed,\n      changed: metrics.changed,\n      body: issue.body || \"\",\n    };\n  });\n\nconst correctionWorkItems = issues\n  .filter((issue) => !issue.pull_request)\n  .filter((issue) => hasLabel(issue, workItemLabel))\n  .map((issue) => ({\n    number: issue.number,\n    title: issue.title,\n    state: issue.state,\n    created_at: issue.created_at,\n    updated_at: issue.updated_at,\n    closed_at: issue.closed_at,\n    html_url: issue.html_url,\n    pattern_key: extractPatternKey(issue.body || \"\"),\n    labels: (issue.labels || []).map(labelName).filter(Boolean),\n    body: issue.body || \"\",\n  }));\n\nconst workflows = await github.paginate(github.rest.actions.listRepoWorkflows, {\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  per_page: 100,\n});\n\nconst selectedWorkflows = workflows.filter((workflow) => workflowPaths.has(workflow.path));\n\nconst workflowRuns = [];\nfor (const workflow of selectedWorkflows) {\n  const runsResponse = await github.rest.actions.listWorkflowRuns({\n    owner: context.repo.owner,\n    repo: context.repo.repo,\n    workflow_id: workflow.id,\n    per_page: 30,\n  });\n\n  for (const run of runsResponse.data.workflow_runs || []) {\n    if (new Date(run.created_at) < thirtyDaysAgo) {\n      continue;\n    }\n\n    workflowRuns.push({\n      workflow_name: workflow.name,\n      workflow_path: workflow.path,\n      run_id: run.id,\n      run_number: run.run_number,\n      event: run.event,\n      status: run.status,\n      conclusion: run.conclusion,\n      created_at: run.created_at,\n      updated_at: run.updated_at,\n      html_url: run.html_url,\n    });\n  }\n}\n\nconst payload = {\n  generated_at: now.toISOString(),\n  windows: {\n    last_7_days_start: sevenDaysAgo.toISOString(),\n    previous_7_days_start: fourteenDaysAgo.toISOString(),\n    last_30_days_start: thirtyDaysAgo.toISOString(),\n  },\n  auto_labelling_summaries: autoLabellingSummaries,\n  correction_work_items: correctionWorkItems,\n  workflow_runs: workflowRuns.sort((left, right) => new Date(right.created_at) - new Date(left.created_at)),\n};\n\nfs.writeFileSync(path.join(outputDir, \"health-data.json\"), `${JSON.stringify(payload, null, 2)}\\n`, \"utf8\");\n"
 
       - name: Configure Git credentials
         env:
@@ -312,9 +304,9 @@ jobs:
           github.event.pull_request || github.event.issue.pull_request
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -343,42 +335,22 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_27bac2d5cbd9dc9a_EOF'
-          {"close_issue":{"max":3,"required_labels":["labelling-correction-work-item"],"required_title_prefix":"[Labelling Correction Work Item]","target":"*"},"create_issue":{"close_older_issues":false,"group":true,"labels":["labelling-correction-work-item"],"max":3,"title_prefix":"[Labelling Correction Work Item]"},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"},"update_issue":{"allow_body":true,"max":3,"target":"*","title_prefix":"[Labelling Correction Work Item]"}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_27bac2d5cbd9dc9a_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_4b95c397a9a325a8_EOF'
+          {"create_issue":{"close_older_issues":true,"expires":720,"max":1,"title_prefix":"[Weekly Labelling Health]"},"mentions":{"enabled":false},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"}}
+          GH_AW_SAFE_OUTPUTS_CONFIG_4b95c397a9a325a8_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_0f984b7e6115a114_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_bef1d520fa7debd8_EOF'
           {
             "description_suffixes": {
-              "close_issue": " CONSTRAINTS: Maximum 3 issue(s) can be closed. Target: *. Only issues with title prefix \"[Labelling Correction Work Item]\" can be closed.",
-              "create_issue": " CONSTRAINTS: Maximum 3 issue(s) can be created. Title will be prefixed with \"[Labelling Correction Work Item]\". Labels [\"labelling-correction-work-item\"] will be automatically added.",
-              "update_issue": " CONSTRAINTS: Maximum 3 issue(s) can be updated. Target: *. The target issue title must start with \"[Labelling Correction Work Item]\". Body updates are allowed."
+              "create_issue": " CONSTRAINTS: Maximum 1 issue(s) can be created. Title will be prefixed with \"[Weekly Labelling Health]\"."
             },
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_0f984b7e6115a114_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_46fbf88140b5fc35_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_bef1d520fa7debd8_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_f693ec7afe12dc7b_EOF'
           {
-            "close_issue": {
-              "defaultMax": 1,
-              "fields": {
-                "body": {
-                  "required": true,
-                  "type": "string",
-                  "sanitize": true,
-                  "maxLength": 65000
-                },
-                "issue_number": {
-                  "optionalPositiveInteger": true
-                },
-                "repo": {
-                  "type": "string",
-                  "maxLength": 256
-                }
-              }
-            },
             "create_issue": {
               "defaultMax": 1,
               "fields": {
@@ -468,63 +440,9 @@ jobs:
                   "maxLength": 65000
                 }
               }
-            },
-            "update_issue": {
-              "defaultMax": 1,
-              "fields": {
-                "assignees": {
-                  "type": "array",
-                  "itemType": "string",
-                  "itemSanitize": true,
-                  "itemMaxLength": 39
-                },
-                "body": {
-                  "type": "string",
-                  "sanitize": true,
-                  "maxLength": 65000
-                },
-                "issue_number": {
-                  "issueOrPRNumber": true
-                },
-                "labels": {
-                  "type": "array",
-                  "itemType": "string",
-                  "itemSanitize": true,
-                  "itemMaxLength": 128
-                },
-                "milestone": {
-                  "optionalPositiveInteger": true
-                },
-                "operation": {
-                  "type": "string",
-                  "enum": [
-                    "replace",
-                    "append",
-                    "prepend",
-                    "replace-island"
-                  ]
-                },
-                "repo": {
-                  "type": "string",
-                  "maxLength": 256
-                },
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "open",
-                    "closed"
-                  ]
-                },
-                "title": {
-                  "type": "string",
-                  "sanitize": true,
-                  "maxLength": 128
-                }
-              },
-              "customValidation": "requiresOneOf:status,title,body"
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_46fbf88140b5fc35_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_f693ec7afe12dc7b_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -572,7 +490,7 @@ jobs:
           GH_AW_SAFE_OUTPUTS_PORT: ${{ steps.safe-outputs-start.outputs.port }}
           GITHUB_MCP_GUARD_MIN_INTEGRITY: ${{ steps.determine-automatic-lockdown.outputs.min_integrity }}
           GITHUB_MCP_GUARD_REPOS: ${{ steps.determine-automatic-lockdown.outputs.repos }}
-          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
+          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -eo pipefail
           mkdir -p /tmp/gh-aw/mcp-config
@@ -592,7 +510,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.6'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_f174b483e4267b7b_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_99ab6294e91002dc_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -602,7 +520,7 @@ jobs:
                   "GITHUB_HOST": "\${GITHUB_SERVER_URL}",
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "\${GITHUB_MCP_SERVER_TOKEN}",
                   "GITHUB_READ_ONLY": "1",
-                  "GITHUB_TOOLSETS": "repos"
+                  "GITHUB_TOOLSETS": "context,repos,issues,pull_requests"
                 },
                 "guard-policies": {
                   "allow-only": {
@@ -633,7 +551,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_f174b483e4267b7b_EOF
+          GH_AW_MCP_CONFIG_99ab6294e91002dc_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -664,7 +582,7 @@ jobs:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_AW: true
           GITHUB_HEAD_REF: ${{ github.head_ref }}
-          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
+          GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN || secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_STEP_SUMMARY: /tmp/gh-aw/agent-step-summary.md
@@ -750,7 +668,7 @@ jobs:
         env:
           GH_AW_SAFE_OUTPUTS: ${{ steps.set-runtime-paths.outputs.GH_AW_SAFE_OUTPUTS }}
           GH_AW_ALLOWED_DOMAINS: "api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,api.snapcraft.io,archive.ubuntu.com,azure.archive.ubuntu.com,crl.geotrust.com,crl.globalsign.com,crl.identrust.com,crl.sectigo.com,crl.thawte.com,crl.usertrust.com,crl.verisign.com,crl3.digicert.com,crl4.digicert.com,crls.ssl.com,github.com,host.docker.internal,json-schema.org,json.schemastore.org,keyserver.ubuntu.com,ocsp.digicert.com,ocsp.geotrust.com,ocsp.globalsign.com,ocsp.identrust.com,ocsp.sectigo.com,ocsp.ssl.com,ocsp.thawte.com,ocsp.usertrust.com,ocsp.verisign.com,packagecloud.io,packages.cloud.google.com,packages.microsoft.com,ppa.launchpad.net,raw.githubusercontent.com,registry.npmjs.org,s.symcb.com,s.symcd.com,security.ubuntu.com,telemetry.enterprise.githubcopilot.com,ts-crl.ws.symantec.com,ts-ocsp.ws.symantec.com,www.googleapis.com"
-          GH_AW_ALLOWED_GITHUB_REFS: "community/community-ops"
+          GH_AW_ALLOWED_GITHUB_REFS: ""
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_API_URL: ${{ github.api_url }}
         with:
@@ -840,7 +758,7 @@ jobs:
       contents: read
       issues: write
     concurrency:
-      group: "gh-aw-conclusion-labelling-correction-feedback"
+      group: "gh-aw-conclusion-labelling-health-report"
       cancel-in-progress: false
     outputs:
       noop_message: ${{ steps.noop.outputs.noop_message }}
@@ -871,9 +789,9 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ steps.setup-agent-output-env.outputs.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: "1"
-          GH_AW_WORKFLOW_NAME: "Labelling Correction Feedback"
+          GH_AW_WORKFLOW_NAME: "Labelling Health Report"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -884,9 +802,9 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ steps.setup-agent-output-env.outputs.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Labelling Correction Feedback"
+          GH_AW_WORKFLOW_NAME: "Labelling Health Report"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -898,10 +816,10 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ steps.setup-agent-output-env.outputs.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Labelling Correction Feedback"
+          GH_AW_WORKFLOW_NAME: "Labelling Health Report"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
-          GH_AW_WORKFLOW_ID: "labelling-correction-feedback"
+          GH_AW_WORKFLOW_ID: "labelling-health-report"
           GH_AW_SECRET_VERIFICATION_RESULT: ${{ needs.activation.outputs.secret_verification_result }}
           GH_AW_CHECKOUT_PR_SUCCESS: ${{ needs.agent.outputs.checkout_pr_success }}
           GH_AW_INFERENCE_ACCESS_ERROR: ${{ needs.agent.outputs.inference_access_error }}
@@ -910,7 +828,7 @@ jobs:
           GH_AW_FAILURE_REPORT_AS_ISSUE: "true"
           GH_AW_TIMEOUT_MINUTES: "20"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -921,13 +839,13 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ steps.setup-agent-output-env.outputs.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Labelling Correction Feedback"
+          GH_AW_WORKFLOW_NAME: "Labelling Health Report"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
           GH_AW_NOOP_REPORT_AS_ISSUE: "true"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
@@ -998,7 +916,7 @@ jobs:
         if: always() && steps.detection_guard.outputs.run_detection == 'true'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          WORKFLOW_NAME: "Labelling Correction Feedback"
+          WORKFLOW_NAME: "Labelling Health Report"
           WORKFLOW_DESCRIPTION: "No description provided"
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
@@ -1068,29 +986,6 @@ jobs:
             const { main } = require('${{ runner.temp }}/gh-aw/actions/parse_threat_detection_results.cjs');
             await main();
 
-  pre_activation:
-    runs-on: ubuntu-slim
-    outputs:
-      activated: ${{ steps.check_membership.outputs.is_team_member == 'true' }}
-      matched_command: ''
-    steps:
-      - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@f22886a9607f5c27e79742a8bfc5faa34737138b # v0.64.2
-        with:
-          destination: ${{ runner.temp }}/gh-aw/actions
-      - name: Check team membership for workflow
-        id: check_membership
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          GH_AW_REQUIRED_ROLES: "admin,maintainer,write"
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
-            setupGlobals(core, github, context, exec, io);
-            const { main } = require('${{ runner.temp }}/gh-aw/actions/check_membership.cjs');
-            await main();
-
   safe_outputs:
     needs:
       - agent
@@ -1102,11 +997,11 @@ jobs:
       issues: write
     timeout-minutes: 15
     env:
-      GH_AW_CALLER_WORKFLOW_ID: "${{ github.repository }}/labelling-correction-feedback"
+      GH_AW_CALLER_WORKFLOW_ID: "${{ github.repository }}/labelling-health-report"
       GH_AW_ENGINE_ID: "copilot"
       GH_AW_ENGINE_MODEL: ${{ needs.agent.outputs.model }}
-      GH_AW_WORKFLOW_ID: "labelling-correction-feedback"
-      GH_AW_WORKFLOW_NAME: "Labelling Correction Feedback"
+      GH_AW_WORKFLOW_ID: "labelling-health-report"
+      GH_AW_WORKFLOW_NAME: "Labelling Health Report"
     outputs:
       code_push_failure_count: ${{ steps.process_safe_outputs.outputs.code_push_failure_count }}
       code_push_failure_errors: ${{ steps.process_safe_outputs.outputs.code_push_failure_errors }}
@@ -1152,9 +1047,9 @@ jobs:
           GH_AW_ALLOWED_DOMAINS: "api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,api.snapcraft.io,archive.ubuntu.com,azure.archive.ubuntu.com,crl.geotrust.com,crl.globalsign.com,crl.identrust.com,crl.sectigo.com,crl.thawte.com,crl.usertrust.com,crl.verisign.com,crl3.digicert.com,crl4.digicert.com,crls.ssl.com,github.com,host.docker.internal,json-schema.org,json.schemastore.org,keyserver.ubuntu.com,ocsp.digicert.com,ocsp.geotrust.com,ocsp.globalsign.com,ocsp.identrust.com,ocsp.sectigo.com,ocsp.ssl.com,ocsp.thawte.com,ocsp.usertrust.com,ocsp.verisign.com,packagecloud.io,packages.cloud.google.com,packages.microsoft.com,ppa.launchpad.net,raw.githubusercontent.com,registry.npmjs.org,s.symcb.com,s.symcd.com,security.ubuntu.com,telemetry.enterprise.githubcopilot.com,ts-crl.ws.symantec.com,ts-ocsp.ws.symantec.com,www.googleapis.com"
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_API_URL: ${{ github.api_url }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"close_issue\":{\"max\":3,\"required_labels\":[\"labelling-correction-work-item\"],\"required_title_prefix\":\"[Labelling Correction Work Item]\",\"target\":\"*\"},\"create_issue\":{\"close_older_issues\":false,\"group\":true,\"labels\":[\"labelling-correction-work-item\"],\"max\":3,\"title_prefix\":\"[Labelling Correction Work Item]\"},\"missing_data\":{},\"missing_tool\":{},\"noop\":{\"max\":1,\"report-as-issue\":\"true\"},\"update_issue\":{\"allow_body\":true,\"max\":3,\"target\":\"*\",\"title_prefix\":\"[Labelling Correction Work Item]\"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_issue\":{\"close_older_issues\":true,\"expires\":720,\"max\":1,\"title_prefix\":\"[Weekly Labelling Health]\"},\"missing_data\":{},\"missing_tool\":{},\"noop\":{\"max\":1,\"report-as-issue\":\"true\"}}"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
