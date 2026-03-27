@@ -33,3 +33,12 @@ gh aw compile <workflow-name>   # e.g. auto-labelling, labelling-correction-feed
 1. Set the [secrets](#actions-secrets) above in this repo and the target repo.
 2. Navigate to the workflow in the [GitHub Actions](https://github.com/community/community-ops/actions) tab and trigger a `workflow_dispatch` for each workflow once.
 3. Watch the first week of scheduled runs before tuning thresholds or prompts.
+
+### Labelling correction feedback (triage + instruction updates)
+
+`labelling-correction-feedback` opens a **Feedback Issue Group** (parent issue) and links related sub-issues underneath it.
+
+**How to use the Feedback Issue Group**
+- Treat the **group issue** as the source of truth for deciding what should change in [instruction file](.github/instructions/community-discussion-labeling.md).
+- Use **sub-issues** as supporting examples/evidence, not as the driver for repo-wide instruction changes.
+- When the group reflects a confirmed pattern, **assign the group issue to Copilot** to propose a single consolidated docs update.
