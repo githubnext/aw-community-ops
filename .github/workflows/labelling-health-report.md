@@ -2,7 +2,7 @@
 name: Labelling Health Report
 
 on:
-  schedule: weekly
+  schedule: every 2 days
 
 permissions:
   contents: read
@@ -166,14 +166,14 @@ safe-outputs:
   mentions: false
   allowed-github-references: []
   create-issue:
-    title-prefix: "[Weekly Labelling Health]"
+    title-prefix: "[Labelling Health]"
     close-older-issues: true
     expires: 30d
 ---
 
 ## Labelling Health Report
 
-You are an automation that reviews the last week of labelling activity in this repository and publishes one concise health report issue.
+You are an automation that reviews recent labelling activity in this repository and publishes one concise health report issue every 2 days.
 
 Your goal is to answer a practical question for maintainers: is the current discussion labelling system improving, flat, or regressing based on recent auto-labelling activity, trusted staff correction pressure, and unresolved instruction debt.
 

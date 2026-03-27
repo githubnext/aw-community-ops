@@ -8,7 +8,7 @@ This repo hosts automated discussion labeling logic for [`community/community`](
 | --- | --- | --- |
 | [`auto-labelling.md`](.github/workflows/auto-labelling.md) | Labels discussions using the [instruction file](.github/instructions/community-discussion-labeling.md) | daily, `workflow_dispatch` |
 | [`labelling-correction-feedback.md`](.github/workflows/labelling-correction-feedback.md) | Detects trusted staff label corrections and proposes instruction updates | `repository_dispatch` |
-| [`labelling-health-report.md`](.github/workflows/labelling-health-report.md) | Publishes a weekly report on labelling quality, correction pressure, and open instruction debt | weekly, `workflow_dispatch` |
+| [`labelling-health-report.md`](.github/workflows/labelling-health-report.md) | Publishes a rolling report on labelling quality, correction pressure, and open instruction debt | every 2 days, `workflow_dispatch` |
 
 ### Actions secrets
 
@@ -21,10 +21,10 @@ This repo hosts automated discussion labeling logic for [`community/community`](
 ## Recompiling
 
 Edits to [the instruction file](.github/instructions/community-discussion-labeling.md) alone do *not* require recompilation.
-Only use the `compile` command if you are making changes to the actual workflow files (e.g. `auto-labelling.md`, `labelling-correction-feedback.md`):
+Only use the `compile` command if you are making changes to the actual workflow files (e.g. `auto-labelling.md`, `labelling-correction-feedback.md`, `labelling-health-report.md`):
 
 ```bash
-gh aw compile <workflow-name>   # e.g. auto-labelling, labelling-correction-feedback
+gh aw compile <workflow-name>   # e.g. auto-labelling, labelling-correction-feedback, labelling-health-report
 ```
 
 ## Go-Live
