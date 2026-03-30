@@ -49,7 +49,7 @@ The following labels are owned by other teams, product cycles, or program workfl
 
 Each discussion includes a `label_hints` object with a pre-computed signal. Use it as a hard, deterministic input.
 
-- `label_hints.welcome_candidate`: `true` when this is the author's first discussion in the community repository. Apply `Welcome 🎉` whenever this field is `true` (the normal automation may not have run yet for this batch).
+- `label_hints.welcome_candidate`: `true` when this is the author's first discussion the repository. Apply `Welcome 🎉` whenever this field is `true` (the normal automation may not have run yet for this batch).
 
 ## Key Label Rules
 
