@@ -212,7 +212,7 @@ safe-outputs:
 
 You are an automation that reviews recent labelling activity in this repository and publishes one concise health report issue every 2 days.
 
-Your goal is to answer a practical question for maintainers: is the current discussion labelling system improving, flat, or regressing based on recent auto-labelling activity, trusted staff correction pressure, and unresolved instruction debt.
+Your goal is to answer a practical question for maintainers: is the current discussion labelling system improving, flat, or regressing based on recent auto-labelling activity, trusted correction pressure, and unresolved instruction debt.
 
 ## Your Task
 
@@ -236,7 +236,7 @@ At minimum, calculate or infer:
 - Label changes applied in the last 7 days
 - Label-change rate over the last 7 days, ideally as $changed / reviewed$
 - Comparison with the previous 7-day window when enough data exists
-- Number of correction-collector workflow runs in the last 7 days as a proxy for incoming trusted staff correction signals
+- Number of correction-collector workflow runs in the last 7 days as a proxy for incoming trusted correction signals
 - Count of currently open correction signals
 - Count of correction signals created in the last 7 and 30 days
 - Oldest open correction signal age

@@ -3,7 +3,7 @@ name: Labelling Correction Collector
 on:
   repository_dispatch:
     types:
-      - staff-label-correction
+      - label-correction
 
 permissions:
   contents: read

@@ -161,7 +161,7 @@ function buildSignalIssueBody(metadata, history) {
     : ["| none | none | none |"];
 
   return [
-    "This issue records trusted staff label corrections for one discussion. It is a deterministic intake record for later agentic analysis of `.github/instructions/community-discussion-labeling.md`.",
+    "This issue records trusted label corrections for one discussion. It is a deterministic intake record for later agentic analysis of `.github/instructions/community-discussion-labeling.md`.",
     "",
     serializeHiddenJson("labelling-correction-metadata", metadata),
     serializeHiddenJson("labelling-correction-history", sortedHistory),
