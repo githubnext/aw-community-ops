@@ -33,6 +33,8 @@ These labels may already be applied by upstream automation before this workflow 
 
 Only restore one of these labels when it is clearly absent and the evidence is unambiguous (for example, a discussion that predates the automation and has no topic label at all).
 
+When a category/topic-area label applied from the `💬 Feature/Topic Area` dropdown is clearly inconsistent with the discussion content — for example, a discussion about GitHub Actions runners carrying `Code Search and Navigation` — apply the correct topic-area label from the allowlist. User selection errors in the dropdown are within scope for correction; this is not duplicating automation.
+
 ### Labels never applied by this workflow
 
 The following labels are owned by other teams, product cycles, or program workflows. Do not apply or remove them regardless of discussion content:
@@ -60,6 +62,8 @@ Apply `Welcome 🎉` when `label_hints.welcome_candidate` is `true`. This is a d
 ### `Question`
 
 Apply `Question` when the discussion is clearly asking for help, guidance, or an answer, and no `Question` label is already present. Strong signals: title ends with `?`, title begins with an interrogative word (How, What, Why, Where, Can I, Is it), or the body explicitly requests help. A discussion can carry both `Question` and a topic label such as `Actions` or `Copilot`.
+
+Apply `Question` even when the automated `Bug` label is already present, if the body content is asking for help or guidance rather than describing a reproducible defect. The `🏷️ Discussion Type` dropdown selection does not preclude adding `Question` — user-selected dropdown values are not always accurate representations of the actual content intent.
 
 ### `Copilot` vs. `Copilot in GitHub`
 
