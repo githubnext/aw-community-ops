@@ -9,10 +9,12 @@ on:
         description: Discussion repository to read from and update (owner/repo)
         required: false
         type: string
+        default: githubnext/aw-community-discussions
       max-discussions:
         description: Maximum number of discussions to review for this run
         required: false
         type: number
+        default: 120
       target-category:
         description: Discussion category slug to review, or all for every category
         required: false
