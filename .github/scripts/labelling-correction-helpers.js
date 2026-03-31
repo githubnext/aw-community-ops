@@ -43,7 +43,11 @@ function normalizeText(text, maxLength = MAX_DISCUSSION_BODY_LENGTH) {
 }
 
 function parseTargetRepository(fullName) {
-  const trimmed = (fullName || "").trim() || DEFAULT_TARGET_REPOSITORY;
+  const trimmed = (fullName || "").trim();
+  if (!trimmed) {
+    throw new Error("Missing target repository");
+  }
+
   const [owner, repo] = trimmed.split("/");
   if (!owner || !repo) {
     throw new Error(`Invalid repository value '${trimmed}'`);
@@ -106,12 +110,8 @@ function normalizeDispatchPayload(rawPayload) {
       actor,
       createdAt: dispatchData.createdAt || new Date().toISOString(),
     },
-    target_repository: parseTargetRepository(
-      dispatchData.target_repository
-      || dispatchData.target_repo
-      || dispatchData.repository
-      || DEFAULT_TARGET_REPOSITORY
-    ),
+    // source_repository in the dispatch payload is the discussions repo where the discussion lives.
+    target_repository: parseTargetRepository(dispatchData.source_repository),
   };
 }
 
