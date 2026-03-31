@@ -2,7 +2,7 @@
 name: Labelling Health Report
 
 on:
-  schedule: every 2 days
+  schedule: daily
 
 permissions:
   contents: read
@@ -199,7 +199,7 @@ steps:
         fs.writeFileSync(path.join(outputDir, "health-data.json"), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 
 safe-outputs:
-  github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
+  github-token: ${{ secrets.COMM_COMM_OPS_ISSUES_TOKEN }}
   mentions: false
   allowed-github-references: []
   create-issue:

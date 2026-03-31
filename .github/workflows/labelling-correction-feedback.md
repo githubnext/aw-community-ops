@@ -8,9 +8,10 @@ on:
         description: Parent intake issue number to review
         required: false
         type: number
-  issues:
-    types:
-      - assigned
+  label_command:
+    name: update-instructions
+    events: [issues]
+    remove_label: false
 
 permissions:
   contents: read

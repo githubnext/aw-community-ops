@@ -36,7 +36,7 @@ steps:
       MAX_DISCUSSIONS: ${{ inputs.max-discussions || env.DEFAULT_MAX_DISCUSSIONS }}
       TARGET_CATEGORY: ${{ inputs.target-category || env.DEFAULT_TARGET_CATEGORY }}
     with:
-      github-token: ${{ secrets.READ_COMM_COMM_DISCUSSIONS_TOKEN }}
+      github-token: ${{ secrets.COMM_COMM_DISCUSSIONS_TOKEN }}
       script: |
         const path = require("node:path");
         const { main } = require(path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "fetch-community-discussions.js"));
@@ -45,18 +45,18 @@ steps:
 
 tools:
   github:
-    github-token: ${{ secrets.READ_COMM_COMM_DISCUSSIONS_TOKEN }}
+    github-token: ${{ secrets.COMM_COMM_DISCUSSIONS_TOKEN }}
     toolsets: [discussions, repos]
 
 safe-outputs:
   allowed-github-references: [githubnext/aw-community-ops]
   create-issue:
-    github-token: ${{ secrets.WRITE_TO_COMM_OPS_TOKEN }}
+    github-token: ${{ secrets.COMM_COMM_OPS_ISSUES_TOKEN }}
     title-prefix: "[Daily Auto-labelling Summary]"
     close-older-issues: true
     expires: 7d
   update-discussion:
-    github-token: ${{ secrets.READ_COMM_COMM_DISCUSSIONS_TOKEN }}
+    github-token: ${{ secrets.COMM_COMM_DISCUSSIONS_TOKEN }}
     target: "*"
     target-repo: ${{ inputs.target-repo || env.DEFAULT_TARGET_REPOSITORY }}
     max: ${{ inputs.max-discussions || env.DEFAULT_MAX_DISCUSSIONS }}
