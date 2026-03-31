@@ -59,7 +59,7 @@ async function getSubIssueCount(github, owner, repo, issueNumber) {
       query($owner: String!, $repo: String!, $issueNumber: Int!) {
         repository(owner: $owner, name: $repo) {
           issue(number: $issueNumber) {
-            subIssues(first: 121) {
+            subIssues(first: 1) {
               totalCount
             }
           }
