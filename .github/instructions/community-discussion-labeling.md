@@ -6,7 +6,7 @@ Review prepared discussions from the target discussion repository and assign lab
 - Use `/tmp/gh-aw/agent/discussion-scan/` as the source of truth, especially `discussions.jsonl`, `request.json`, `summary.json`, and `allowlists.json`.
 - Review every prepared discussion in the current input set, including discussions that already have labels.
 - If `target_discussion_number` is present in `request.json`, treat the run as a targeted follow-up for a discussion that was just created or recategorized.
-- Only propose labels from the allowlist. If no allowed label fits or confidence is low, skip.
+- Only propose labels that appear in the `allowed-labels` list defined in the workflow file or in `allowlists.json`. Never invent, abbreviate, or modify label names. If no label from the list fits or confidence is low, skip the discussion.
 - Base decisions on visible signals only: category, title, body, current labels, and repeated keywords.
 - Use `inactive` when `inactive_signal.eligible` is `true`. Treat it as eligible when either the discussion has had no comments for at least 30 days or it has had no updates for at least 30 days.
 - Propose the smallest useful label change.
