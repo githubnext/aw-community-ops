@@ -22,6 +22,7 @@ on:
         default: all
   
 permissions:
+  actions: read
   contents: read
   discussions: read
 
@@ -30,20 +31,55 @@ env:
   DEFAULT_MAX_DISCUSSIONS: "120"
   DEFAULT_TARGET_CATEGORY: all
 
+jobs:
+  fetch_discussion_scan:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      discussions: read
+    outputs:
+      artifact_name: ${{ steps.artifact_meta.outputs.artifact_name }}
+    steps:
+      - name: Checkout fetch inputs
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .github/workflows/auto-labelling.md
+          sparse-checkout-cone-mode: false
+      - name: Prepare artifact metadata
+        id: artifact_meta
+        run: echo "artifact_name=discussion-scan" >> "$GITHUB_OUTPUT"
+      - name: Fetch community discussions
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          # These env vars are consumed by .github/scripts/fetch-community-discussions.js.
+          TARGET_REPOSITORY: ${{ inputs.target-repo || env.DEFAULT_TARGET_REPOSITORY }}
+          MAX_DISCUSSIONS: ${{ inputs.max-discussions || env.DEFAULT_MAX_DISCUSSIONS }}
+          TARGET_CATEGORY: ${{ inputs.target-category || env.DEFAULT_TARGET_CATEGORY }}
+        with:
+          github-token: ${{ secrets.COMM_COMM_DISCUSSIONS_TOKEN }}
+          script: |
+            const path = require("node:path");
+            const { main } = require(path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "fetch-community-discussions.js"));
+            // main() reads TARGET_REPOSITORY, MAX_DISCUSSIONS, and TARGET_CATEGORY from this step environment.
+            await main({ core, github, context });
+      - name: Upload prepared discussion scan
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: ${{ steps.artifact_meta.outputs.artifact_name }}
+          path: /tmp/gh-aw/agent/discussion-scan
+          if-no-files-found: error
+          retention-days: 1
+
 steps:
-  - uses: actions/github-script@v8
-    env:
-      # These env vars are consumed by .github/scripts/fetch-community-discussions.js.
-      TARGET_REPOSITORY: ${{ inputs.target-repo || env.DEFAULT_TARGET_REPOSITORY }}
-      MAX_DISCUSSIONS: ${{ inputs.max-discussions || env.DEFAULT_MAX_DISCUSSIONS }}
-      TARGET_CATEGORY: ${{ inputs.target-category || env.DEFAULT_TARGET_CATEGORY }}
+  - name: Download prepared discussion scan
+    uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
     with:
-      github-token: ${{ secrets.COMM_COMM_DISCUSSIONS_TOKEN }}
-      script: |
-        const path = require("node:path");
-        const { main } = require(path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "fetch-community-discussions.js"));
-        // main() reads TARGET_REPOSITORY, MAX_DISCUSSIONS, and TARGET_CATEGORY from this step environment.
-        await main({ core, github, context });
+      name: ${{ needs.fetch_discussion_scan.outputs.artifact_name }}
+      path: /tmp/gh-aw/agent/discussion-scan
 
 tools:
   github:
